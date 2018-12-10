@@ -1,0 +1,6 @@
+/home/pi/OpenSourceVS-master/build/CMakeFiles/rebuild_cache.dir
+/home/pi/OpenSourceVS-master/build/CMakeFiles/edit_cache.dir
+/home/pi/OpenSourceVS-master/build/CMakeFiles/main.dir
+/home/pi/OpenSourceVS-master/build/functions/CMakeFiles/edit_cache.dir
+/home/pi/OpenSourceVS-master/build/functions/CMakeFiles/rebuild_cache.dir
+/home/pi/OpenSourceVS-master/build/functions/CMakeFiles/functions.dir
