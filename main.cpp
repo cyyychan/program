@@ -112,14 +112,13 @@ int main()
 
 		//将图像morpho复制给mascara(将一维的图像变为三维图像)
 		//morpho.convertTo(mascara, cv::COLOR_GRAY2BGR);
-		morpho.copyTo(mascara);
-		/*
+		//morpho.copyTo(mascara);
 		src.copyTo(mascara);
 		for(int i = 0; i < 3; i++)
 			for (int x=0; x<mascara.cols; x++)
 				for (int y=0; y<mascara.rows; y++)
 					mascara.at<Vec3b>(y,x)[i] = morpho.at<uchar>(y,x);
-		*/
+		
 		
 		/**
 				C O N V E X   H U L L

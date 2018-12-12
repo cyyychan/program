@@ -48,10 +48,10 @@ RM = /usr/bin/cmake -E remove -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/pi/OpenSourceVS-master
+CMAKE_SOURCE_DIR = /home/pi/program
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/pi/OpenSourceVS-master/build
+CMAKE_BINARY_DIR = /home/pi/program/build
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -80,14 +80,14 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	cd /home/pi/OpenSourceVS-master/build && $(CMAKE_COMMAND) -E cmake_progress_start /home/pi/OpenSourceVS-master/build/CMakeFiles /home/pi/OpenSourceVS-master/build/functions/CMakeFiles/progress.marks
-	cd /home/pi/OpenSourceVS-master/build && $(MAKE) -f CMakeFiles/Makefile2 functions/all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/pi/OpenSourceVS-master/build/CMakeFiles 0
+	cd /home/pi/program/build && $(CMAKE_COMMAND) -E cmake_progress_start /home/pi/program/build/CMakeFiles /home/pi/program/build/functions/CMakeFiles/progress.marks
+	cd /home/pi/program/build && $(MAKE) -f CMakeFiles/Makefile2 functions/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/pi/program/build/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
 clean:
-	cd /home/pi/OpenSourceVS-master/build && $(MAKE) -f CMakeFiles/Makefile2 functions/clean
+	cd /home/pi/program/build && $(MAKE) -f CMakeFiles/Makefile2 functions/clean
 .PHONY : clean
 
 # The main clean target
@@ -97,22 +97,22 @@ clean/fast: clean
 
 # Prepare targets for installation.
 preinstall: all
-	cd /home/pi/OpenSourceVS-master/build && $(MAKE) -f CMakeFiles/Makefile2 functions/preinstall
+	cd /home/pi/program/build && $(MAKE) -f CMakeFiles/Makefile2 functions/preinstall
 .PHONY : preinstall
 
 # Prepare targets for installation.
 preinstall/fast:
-	cd /home/pi/OpenSourceVS-master/build && $(MAKE) -f CMakeFiles/Makefile2 functions/preinstall
+	cd /home/pi/program/build && $(MAKE) -f CMakeFiles/Makefile2 functions/preinstall
 .PHONY : preinstall/fast
 
 # clear depends
 depend:
-	cd /home/pi/OpenSourceVS-master/build && $(CMAKE_COMMAND) -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 1
+	cd /home/pi/program/build && $(CMAKE_COMMAND) -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 1
 .PHONY : depend
 
 # Convenience name for target.
 functions/CMakeFiles/functions.dir/rule:
-	cd /home/pi/OpenSourceVS-master/build && $(MAKE) -f CMakeFiles/Makefile2 functions/CMakeFiles/functions.dir/rule
+	cd /home/pi/program/build && $(MAKE) -f CMakeFiles/Makefile2 functions/CMakeFiles/functions.dir/rule
 .PHONY : functions/CMakeFiles/functions.dir/rule
 
 # Convenience name for target.
@@ -122,7 +122,7 @@ functions: functions/CMakeFiles/functions.dir/rule
 
 # fast build rule for target.
 functions/fast:
-	cd /home/pi/OpenSourceVS-master/build && $(MAKE) -f functions/CMakeFiles/functions.dir/build.make functions/CMakeFiles/functions.dir/build
+	cd /home/pi/program/build && $(MAKE) -f functions/CMakeFiles/functions.dir/build.make functions/CMakeFiles/functions.dir/build
 .PHONY : functions/fast
 
 Functions.o: Functions.cpp.o
@@ -131,7 +131,7 @@ Functions.o: Functions.cpp.o
 
 # target to build an object file
 Functions.cpp.o:
-	cd /home/pi/OpenSourceVS-master/build && $(MAKE) -f functions/CMakeFiles/functions.dir/build.make functions/CMakeFiles/functions.dir/Functions.cpp.o
+	cd /home/pi/program/build && $(MAKE) -f functions/CMakeFiles/functions.dir/build.make functions/CMakeFiles/functions.dir/Functions.cpp.o
 .PHONY : Functions.cpp.o
 
 Functions.i: Functions.cpp.i
@@ -140,7 +140,7 @@ Functions.i: Functions.cpp.i
 
 # target to preprocess a source file
 Functions.cpp.i:
-	cd /home/pi/OpenSourceVS-master/build && $(MAKE) -f functions/CMakeFiles/functions.dir/build.make functions/CMakeFiles/functions.dir/Functions.cpp.i
+	cd /home/pi/program/build && $(MAKE) -f functions/CMakeFiles/functions.dir/build.make functions/CMakeFiles/functions.dir/Functions.cpp.i
 .PHONY : Functions.cpp.i
 
 Functions.s: Functions.cpp.s
@@ -149,7 +149,7 @@ Functions.s: Functions.cpp.s
 
 # target to generate assembly for a file
 Functions.cpp.s:
-	cd /home/pi/OpenSourceVS-master/build && $(MAKE) -f functions/CMakeFiles/functions.dir/build.make functions/CMakeFiles/functions.dir/Functions.cpp.s
+	cd /home/pi/program/build && $(MAKE) -f functions/CMakeFiles/functions.dir/build.make functions/CMakeFiles/functions.dir/Functions.cpp.s
 .PHONY : Functions.cpp.s
 
 # Help Target
@@ -175,6 +175,6 @@ help:
 # No rule that depends on this can have commands that come from listfiles
 # because they might be regenerated.
 cmake_check_build_system:
-	cd /home/pi/OpenSourceVS-master/build && $(CMAKE_COMMAND) -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 0
+	cd /home/pi/program/build && $(CMAKE_COMMAND) -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 0
 .PHONY : cmake_check_build_system
 

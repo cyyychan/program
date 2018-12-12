@@ -1,4 +1,4 @@
-# Install script for directory: /home/pi/OpenSourceVS-master/functions
+# Install script for directory: /home/pi/program/functions
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
