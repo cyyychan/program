@@ -16,7 +16,7 @@ int main()
 	Size video_size = Size((int)stream.get(CV_CAP_PROP_FRAME_WIDTH) / RATIO, (int)stream.get(CV_CAP_PROP_FRAME_HEIGHT)  /RATIO);
 	int codec = static_cast<int>(stream.get(CV_CAP_PROP_FOURCC));
 	double frame_rate = stream.get(CV_CAP_PROP_FPS);
-	VideoWriter outputVideo(RESULT_VIDEO, codec, frame_rate, video_size, true);
+	// VideoWriter outputVideo(RESULT_VIDEO, codec, frame_rate, video_size, true);
 	 
 	Ptr< BackgroundSubtractor> pMOG2;
 	pMOG2 = createBackgroundSubtractorMOG2();
@@ -33,8 +33,8 @@ int main()
 
 	vector<BlobCenter> blobs, blobs_old;	//前景物体集合
 	int ratio = 2, next_id = 1;
-	bool flag = true;
-	vector<vector<double>> etiquetas;
+	bool is_first_frame = true;
+	vector<vector<double>> label_vec;		//用于存储标记的vector
 	vector <pair<vector<vector<int>>, vector<Mat>>> Objects, Objects_copia;	
 
 	Mat colored_output; 
@@ -48,7 +48,8 @@ int main()
 			break;
 		}
 		src_frame = frame.clone();
-		imshow("src", src_frame);
+		// resize(src_frame, src_frame, Size(src_frame.size[1]/2, src_frame.size[0]/2));
+		// imshow("src", src_frame);
 		
 		//preprocess
 		GaussianBlur(src_frame, preprocessed_frame, Size(9, 9), 0, 0);
@@ -65,62 +66,61 @@ int main()
 		//找凸包
 		Mat hull_mask = Mat::zeros(src_frame.size(), CV_8UC1);
 		findConvexHull(front_mask, src_frame, image_convexhull, hull_mask);
-		// imshow("hull", image_convexhull);
+		imshow("hull", image_convexhull);
 		imshow("hull_mask", hull_mask);
 
 		//提取出移动物体，并筛选出目标物体存储在blobs中, 物体所在的帧数为frame_size
 		/*blobs是vector<BlobCenter>， BlobCenter结构如下
-		BlobCenter
-		{
+		BlobCenter{
 			vector<Point2i> blob;
 			Point2i center;	
 			int id;
-			int frame;
-		}
+			int frame;}
 		*/
 		Blob(hull_mask, blobs, frame_num);
 
-		//get background（有点小问题）
-		// if (!(frame_num % background_frames_for_calc))
-		// {
-		// 	if(frame_num == 0) background = Mat::zeros(src_frame.size(), CV_8UC3);
-		// 	else extractBackground(src_frame, hull_mask, background);
-		// }
-		// imshow("background", background_temp);
+		// get background
+		if (!(frame_num % background_frames_for_calc))
+		{
+			if(frame_num == 0) background = imread(BACKGROUND_INITIAL);
+			else extractBackground(src_frame, hull_mask, background);
+		}
+		// imshow("background", background);
 
 		/*****************************************利用物体轨迹进行轨迹重组**********************************/
-		//效果特别差，等待完善！！！
-		// if(flag && (blobs.size() > 0) )
-		// {
-		// 	flag = false;
-		// 	for(int t=0; t < blobs.size(); t++)
-		// 	{
-		// 		blobs[t].id = next_id;
-		// 		next_id++;
-		// 	}
-		// }
-		// else if(blobs.size() > 0)
-		// {
-		// 	correspondencias_id(blobs_old, blobs, etiquetas);
-		// 	reEtiquetado(blobs, etiquetas, next_id);
+		//对不同帧中的相同物体进行标记
+		if(is_first_frame && (blobs.size() > 0) )
+		{
+			is_first_frame = false;
+			for(int t=0; t < blobs.size(); t++)
+			{
+				blobs[t].id = next_id;
+				next_id++;
+			}
+		}
+		else if(blobs.size() > 0)
+		{
+			findCorrespondence(blobs_old, blobs, label_vec);
+			addLabelToObject(blobs, label_vec, next_id);
 
-		// 	colored_output = Mat::zeros(src_frame.size(), CV_8UC3);
-		// 	double time = frame_num / frame_rate;
-		// 	paintBlobs(blobs, colored_output, time);
-		// 	imshow("colored_out", colored_output);
-		// }
+			/*********************演示找出来不同帧中的相同物体，做标记************************/
+			// colored_output = Mat::zeros(src_frame.size(), CV_8UC3);
+			// double time = frame_num / frame_rate;
+			// paintBlobs(blobs, colored_output, time);
+			// imshow("colored_out", colored_output);
+		}
 
-		// if(blobs.size() > 0)
-		// {
-		// 	FillObjects(src_frame, blobs, Objects);
-		// }
-		// imshow("blobs", src_frame);
+		if(blobs.size() > 0)
+		{
+			FillObjects(src_frame, blobs, Objects);
+		}
+		imshow("blobs", src_frame);
 		
-		// blobs_old = blobs;
-		// blobs.clear();
-		// etiquetas.clear();
-		// frame_num++;
-		if(cvWaitKey(30) > 0) break;
+		blobs_old = blobs;
+		blobs.clear();
+		label_vec.clear();
+		frame_num++;
+		if(cvWaitKey(300) > 0) break;
 	}
 
 	/************************************暂时不知道具体作用************************************/			
@@ -137,11 +137,10 @@ int main()
 	}
 	Mat fondo = imread(FONDO_NOMBRE,3);
 
-#if EVENTOS_SEG
 	vector <pair < vector<vector <int> > , vector<Mat> > > Objects_aux;
 	seleccionar(Objects,Objects_aux);
 	Objects = Objects_aux;
-#endif
+	
 	mostrar(Objects,fondo,CANTIDAD_EVENTOS, outputVideo,frame_rate);
 	*/
 	return 0;

@@ -146,149 +146,129 @@ void  Blob(const cv::Mat img, vector<BlobCenter> &blobs_out, int frame)
 }
 
 /*******************************************下面的函数应该是用于轨迹重组，但是效果不好，还没有具体看*******************************************/
-// /*
-// POR EL MOMENTO NO SE USA POR ESO LA DEJO COMENTADA
-// */
-// //void CenterDetector(Mat &threshold_output, Mat &out,vector<KeyPoint> &keyPoints)
-// //{
-// //	SimpleBlobDetector::Params params;
-// //	
-// //	params.minThreshold = 40;
-// //	params.maxThreshold = 60;
-// //	params.thresholdStep = 5;
-// //	
-// //	params.minArea = 100; 
-// //	params.minConvexity = 0.3;fundar
-// //	params.minInertiaRatio = 0.01;
-// //	
-// //	params.maxArea = 8000;
-// //	params.maxConvexity = 10;
-// //	
-// //	params.filterByColor = false;
-// //	params.filterByCircularity = false;
-// //	
-// //	line( threshold_output, Point(0, threshold_output.rows-1), Point( threshold_output.cols-1, threshold_output.rows-1 ), Scalar::all(255) );
-// //	
-// //	SimpleBlobDetector blobDetector( params );
-// //	blobDetector.create("SimpleBlob");
-// //	
-// //	blobDetector.detect( threshold_output, keyPoints );
-// //	drawKeypoints( threshold_output, keyPoints, out, CV_RGB(0,255,0), DrawMatchesFlags::DEFAULT);
-// //	
-// //}
+
+// void CenterDetector(Mat &threshold_output, Mat &out,vector<KeyPoint> &keyPoints)
+// {
+// 	SimpleBlobDetector::Params params;
+	
+// 	params.minThreshold = 40;
+// 	params.maxThreshold = 60;
+// 	params.thresholdStep = 5;
+	
+// 	params.minArea = 100; 
+// 	params.minConvexity = 0.3;fundar
+// 	params.minInertiaRatio = 0.01;
+	
+// 	params.maxArea = 8000;
+// 	params.maxConvexity = 10;
+	
+// 	params.filterByColor = false;
+// 	params.filterByCircularity = false;
+	
+// 	line( threshold_output, Point(0, threshold_output.rows-1), Point( threshold_output.cols-1, threshold_output.rows-1 ), Scalar::all(255) );
+	
+// 	SimpleBlobDetector blobDetector( params );
+// 	blobDetector.create("SimpleBlob");
+	
+// 	blobDetector.detect( threshold_output, keyPoints );
+// 	drawKeypoints( threshold_output, keyPoints, out, CV_RGB(0,255,0), DrawMatchesFlags::DEFAULT);
+	
+// }
 
 
-// /*
-// verifica que un id-viejo tenga asociado un único id-nuevo (el más cercano)
-// */
-void verificar_etiqueta(int id1,int id2, double min_dist_centers, vector< vector<double> > &etiquetas)
+void generateLableVec(const int min_dist_id, const int id, const double min_dist_centers, vector<vector<double>> &label_vec)
 {
 	bool flag = true;
-	
-	if(id1 != -1){
-		for(int i=0; i<etiquetas.size(); i++){
-			if(etiquetas[i][0] == (double)id1){
-				if(min_dist_centers < etiquetas[i][2]){
-					etiquetas[i][2] = min_dist_centers;
-					etiquetas[i][1] = id2; 
+	if(min_dist_id != -1)
+	{
+		for(int i = 0; i < label_vec.size(); i++)
+		{
+			if(label_vec[i][0] == (double)min_dist_id)
+			{
+				if(min_dist_centers < label_vec[i][2])
+				{
+					label_vec[i][2] = min_dist_centers;
+					label_vec[i][1] = id; 
 				}
 				flag = false;
 				break;
 			}
 		}
-		
-		if(flag){
+		if(flag)
+		{
 			vector<double> aux;
-			aux.push_back(id1);
-			aux.push_back(id2);
+			aux.push_back(min_dist_id);
+			aux.push_back(id);
 			aux.push_back(min_dist_centers);
-			etiquetas.push_back(aux);
+			label_vec.push_back(aux);
 		}
 	}
-	
 }
 
 
-// /*
-// b1 -> blobs_frame_old
-// b2 -> blobs_frame
-// etiquetas -> correspondencia entre id nuevo y viejo: [id_blob_old, id_blob_new, distancia_entre_centros]
-// */
-void correspondencias_id(vector < BlobCenter > &b1, vector < BlobCenter > &b2, vector< vector<double> > &etiquetas)
+void findCorrespondence(const vector<BlobCenter> b1, const vector<BlobCenter> b2, vector<vector<double>> &label_vec)
 {	
-	bool flag;
+	bool is_first_blob;
 	double dist_centers, min_dist_centers;
 	int min_dist_id;
 	
-	for (size_t i=0; i<b2.size(); i++){
+	for (int i=0; i < b2.size(); i++)
+	{
 		min_dist_centers = 0;
 		min_dist_id = -1;
-		flag = true;
+		is_first_blob = true;
 		
-		for (size_t j=0; j<b1.size(); j++){
-			dist_centers = sqrt( pow(((double)b2[i].center.x - (double)b1[j].center.x), 2) +
-				pow(((double)b2[i].center.y - (double)b1[j].center.y), 2) );
-			
-			if(flag){
-				flag = false;
+		for (int j=0; j < b1.size(); j++)
+		{
+			dist_centers = sqrt(pow(((double)b2[i].center.x - (double)b1[j].center.x), 2) + pow(((double)b2[i].center.y - (double)b1[j].center.y), 2));
+			if(is_first_blob)
+			{
+				is_first_blob = false;
 				min_dist_centers = dist_centers;
 				min_dist_id = b1[j].id;
 			}
-			else if(dist_centers < min_dist_centers){
+			else if(dist_centers < min_dist_centers)
+			{
 				min_dist_centers = dist_centers;
 				min_dist_id = b1[j].id;
 			}
 		}
-		
-		//verifico que no haya otro id2 asociado al id1 mas cercano identificado
-		verificar_etiqueta(min_dist_id, b2[i].id, min_dist_centers, etiquetas);
+		generateLableVec(min_dist_id, b2[i].id, min_dist_centers, label_vec);
 	}	
 }
 
 
-// /*
-// actualiza las etiquetas de los blobs del frame actual con las correspondidas del frame anterior
-// y asigna etiquetas nuevas y únicas a los nuevos blobs dentro del frame
-// */
-void reEtiquetado(vector< BlobCenter > &blobs, vector< vector<double> > &etiquetas, int &next_id)
+void addLabelToObject(vector<BlobCenter> &blobs, vector<vector<double>> &label_vec, int &next_id)
 {
-	bool found; //si esta bandera es falsa, el blob es un nuevo objeto en el frame
-	
-	for(int i=0; i<blobs.size(); i++){
-		
+	bool found; 
+	for(int i = 0; i < blobs.size(); i++)
+	{
 		found = false;
-		
-		for(int j=0; j<etiquetas.size(); j++){
-			if(blobs[i].id == etiquetas[j][1]){
+		for(int j = 0; j < label_vec.size(); j++)
+		{
+			if(blobs[i].id == label_vec[j][1])
+			{
 				found = true;
-				blobs[i].id = etiquetas[j][0];
+				blobs[i].id = label_vec[j][0];
 				break;
 			}
 		}
-		
-		if(!found){
+		if(!found)
+		{
 			blobs[i].id = next_id;
 			next_id = next_id + 1;
 		}
 	}
-	
 }
 
-// /**
-// Colorea los blobs y los devuelve en una imagen
-// @param blobs vector<BlobCenter> vector con todos los centros, ids, label, ...
-// @param output Mat imagen de salida con los blobs pintados
-// @param time double tiempo donde ocurre el suceso
-// **/
-void paintBlobs(const vector < BlobCenter > &blobs, Mat &output, double time)
+void paintBlobs(const vector<BlobCenter> blobs, Mat &output, double time)
 {
-	std::vector<int> labelCheck;
 	unsigned char r;
 	unsigned char g;
 	unsigned char b;
 	
-	for(size_t i=0; i < blobs.size(); i++) {
-		
+	for(size_t i=0; i < blobs.size(); i++) 
+	{
 		vector<Point2i> blob = blobs[i].blob;
 		int label = blobs[i].id;
 		
@@ -296,43 +276,39 @@ void paintBlobs(const vector < BlobCenter > &blobs, Mat &output, double time)
 		g = label*100/10.0;
 		b = label*100/100.0;
 		
-		for(int j=0; j<blob.size(); j++){
+		for(int j=0; j<blob.size(); j++)
+		{
 			output.at<cv::Vec3b>(blob[j].y,blob[j].x)[0] = b;
 			output.at<cv::Vec3b>(blob[j].y,blob[j].x)[1] = g;
 			output.at<cv::Vec3b>(blob[j].y,blob[j].x)[2] = r;
 		}
-		
-#if MAS_INFO
-//		string etiqueta = to_string(label);
-		string etiqueta = to_string(time);
+
+		string etiqueta = to_string(label);
+		// string etiqueta = to_string(time);
 		double escala = 0.3f;
 		double grosor = 1;
-//		FONT_HERSHEY_SCRIPT_SIMPLEX
-//		FONT_HERSHEY_PLAIN
-		putText(output,etiqueta, cvPoint(blobs[i].center.x,blobs[i].center.y), FONT_HERSHEY_SCRIPT_SIMPLEX,	escala,	cvScalar(255,255,255), grosor);
-#endif	
+		putText(output,etiqueta, cvPoint(blobs[i].center.x,blobs[i].center.y), FONT_HERSHEY_SCRIPT_SIMPLEX,	escala,	cvScalar(255,255,255), grosor);	
 	}
-	
 }
 
 
-void FillObjects(const Mat &src, vector< BlobCenter > &blobs, vector <pair <vector<vector <int> > , vector<Mat> > > &Objects)
+void FillObjects(const Mat &src, vector<BlobCenter> &blobs, vector<pair<vector<vector<int>>, vector<Mat>>> &Objects)
 {
-	
-	for(int i=0; i<blobs.size(); i++){
-		
+	for(int i=0; i<blobs.size(); i++)
+	{
 		Mat obj_img = Mat::zeros(src.size(), CV_8UC3);
 		vector<Point2i> blob = blobs[i].blob;
 		int id = blobs[i].id;
 		
-		for(int j=0; j<blob.size(); j++){
-			//pinto en obj_img lo que haya en src en las coordenadas del blob
+		for(int j=0; j<blob.size(); j++)
+		{
 			obj_img.at<Vec3b>(blob[j].y, blob[j].x)[0] = src.at<Vec3b>(blob[j].y, blob[j].x)[0]; //b
 			obj_img.at<Vec3b>(blob[j].y, blob[j].x)[1] = src.at<Vec3b>(blob[j].y, blob[j].x)[1]; //g
 			obj_img.at<Vec3b>(blob[j].y, blob[j].x)[2] = src.at<Vec3b>(blob[j].y, blob[j].x)[2]; //r
 		}
 		
-		if(id < Objects.size()){
+		if(id < Objects.size())
+		{
 			vector <int> aux;
 			aux.push_back(blobs[i].center.x);
 			aux.push_back(blobs[i].center.y);
@@ -340,16 +316,16 @@ void FillObjects(const Mat &src, vector< BlobCenter > &blobs, vector <pair <vect
 			Objects[id].first.push_back(aux);
 			Objects[id].second.push_back(obj_img);
 		}
-		else{ //el primer frame en el vector siempre es negro completo
+		else
+		{ 
 			vector<Mat> aux;
-			
 			vector <int> aux2;
 			aux2.push_back(0);
 			aux2.push_back(0);
 			aux2.push_back(0);
 
-			
-			while(id >= Objects.size()){
+			while(id >= Objects.size())
+			{
 				pair <vector<vector <int> > , vector<Mat> > otro;
 				otro.first.push_back(aux2);
 				otro.second = aux;
