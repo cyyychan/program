@@ -1,83 +1,71 @@
-/**
-				Video Resumen Open Source
-						2015
-Authors:
-		Ponzoni Nelson, npcuadra <at> gmail.com
-		Olivera Jose, joseolivera123 <at> gmail.com
-		Oliva Eduardo, edumoliva <at> gmail.com
-
-Facultad de Ingenieria y Ciencias Hidricas
-Universidad Nacional del Litoral
-
-Procesamiento Digital de Imagenes, 2015
-
-
-please replace <at> for arroba
-**/
 #include"../Functions.h"
 #include <iostream>
 #include <string>
 
-/*
-- maskMog2 -> mascarita de mog2
-- src -> imagen achicada
-- frame2 -> sin blur
-- output -> devuelve la salida a color del frame con el convexhull pasado
-- threshold_output -> devuelve la salida biaria del frame con el convexhull pasado
-*/
-void ConvexHull(const Mat maskMog2,Mat src,const Mat frame2, Mat &output, Mat &threshold_output)
+void findConvexHull(const Mat front_mask, const Mat src_frame, Mat &output, Mat &hull_mask)
 {
-	RNG rng(12345);
-	int thresh = 10;
-	Mat src_gray;
-	cvtColor( maskMog2, src_gray, CV_BGR2GRAY );
-	
-	Mat src_copy = maskMog2.clone();
-	
-	vector<vector<Point> > contours;
+	vector<vector<Point>> contours;
 	vector<Vec4i> hierarchy;
+		
+	// Find contours
+	findContours(front_mask, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
 	
-	/// Detect edges using Threshold
-	threshold( src_gray, threshold_output, thresh, 255, THRESH_BINARY );
-	
-	/// Find contours
-	findContours( threshold_output, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) );
-	
-	/// Find the convex hull object for each contour
-	vector<vector<Point> >hull( contours.size() );
-	
+	// Find the convex hull object for each contour
+	vector<vector<Point>> hull(contours.size());
 	for( int i = 0; i < contours.size(); i++ )
-		convexHull( Mat(contours[i]), hull[i], false );
+		convexHull(Mat(contours[i]), hull[i], false);
 	
-	/// Draw contours + hull results
-	Mat drawing = Mat::zeros( threshold_output.size(), CV_8UC3 );
-	
-	for( int i = 0; i< contours.size(); i++ ){
-		Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
-		drawContours( src, hull, i, color, -1, 8, vector<Vec4i>(), 0, Point() );
+	/*******************************检查convex数量**********************************/
+	//将图像front_mask复制给mask_3C(将一维的图像变为三维图像, 三个通道数值一样)
+	//RNG rng(12345);
+	// Mat mask_3C = Mat::zeros(front_mask.size(), CV_8UC3);
+	// for(int i = 0; i < 3; i++)
+	// 	for (int x=0; x<mask_3C.cols; x++)
+	// 		for (int y=0; y<mask_3C.rows; y++)
+	// 			mask_3C.at<Vec3b>(y,x)[i] = front_mask.at<uchar>(y,x);
+	// for( int i = 0; i< contours.size(); i++ )
+	// {
+	// 	Scalar color = Scalar(rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255));
+	// 	drawContours(mask_3C, hull, i, color, -1);
+	// }
+	// imshow("mask", mask_3C);
+	/******************************************************************************/
+
+	//draw convex
+	for( int i = 0; i< contours.size(); i++ )
+	{
+		Scalar color = Scalar(255);
+		drawContours(hull_mask, hull, i, color, -1);
 	}
-	
-	cvtColor( src, src_gray, CV_BGR2GRAY );
-	threshold( src_gray, threshold_output, thresh, 255, THRESH_BINARY );
-	
-	resize(frame2, src, Size(frame2.size().width/2, frame2.size().height/2) );
-	output=src;
-	
+	output = src_frame.clone();
 	for(int i = 0; i < 3; i++)
-		for (int x=0; x<maskMog2.cols; x++)
-			for (int y=0; y<maskMog2.rows; y++)
-				output.at<cv::Vec3b>(y,x)[i] = 1 - src.at<cv::Vec3b>(y,x)[i] * threshold_output.at<uchar>(y,x);
+		for (int x=0; x<output.cols; x++)
+			for (int y=0; y<output.rows; y++)
+				output.at<cv::Vec3b>(y,x)[i] = output.at<cv::Vec3b>(y,x)[i] * (hull_mask.at<uchar>(y,x) / 255);
 }
 
-
-/*
-- binary -> imagen binaria
-- blobs -> vector que contiene las coordenadas de cada objeto de la imagen
-*/
-void FindBlobs(const cv::Mat &binary, std::vector < std::vector<cv::Point2i> > &blobs)
+void extractBackground(const Mat src_frame, const Mat hull_mask, Mat &background)
 {
-	blobs.clear();
+	double alpha = BACKGROUND_FUSION;
+	double beta = 1.0 - alpha;
 	
+	for (int i = 0; i < src_frame.cols; i++)
+	{
+		for (int j = 0;j < src_frame.rows; j++)
+		{
+			if((!(hull_mask.at<uchar>(j, i))))
+			{
+				background.at<Vec3b>(j, i)[0] = (alpha * background.at<Vec3b>(j, i)[0]) + (beta * src_frame.at<Vec3b>(j, i)[0]); 
+				background.at<Vec3b>(j, i)[1] = (alpha * background.at<Vec3b>(j, i)[1]) + (beta * src_frame.at<Vec3b>(j, i)[1]); 
+				background.at<Vec3b>(j, i)[2] = (alpha * background.at<Vec3b>(j, i)[2]) + (beta * src_frame.at<Vec3b>(j, i)[2]); 
+			}
+		}
+	}
+}
+
+//区域生长找到连通域，单个连通域的点集用blob(vector<Point2i>)存储， 然后放入blobs(vector<vector<Point2i>>)中
+void FindBlobs(const Mat binary, vector<vector<Point2i>> &blobs)
+{
 	// Fill the label_image with the blobs
 	// 0  - background
 	// 1  - unlabelled foreground
@@ -86,229 +74,198 @@ void FindBlobs(const cv::Mat &binary, std::vector < std::vector<cv::Point2i> > &
 	cv::Mat label_image;
 	binary.convertTo(label_image, CV_32SC1);
 	
-	int label_count = 2, // starts at 2 because 0,1 are used already
-		minArea = TAM_MIN_OBJETOS;  //min area of the blob
+	int label_count = 2;
 	
-	for(int y=0; y < label_image.rows; y++) {
+	for(int y = 0; y < label_image.rows; y++) 
+	{
 		int *row = (int*)label_image.ptr(y);
-		for(int x=0; x < label_image.cols; x++) {
-			if(row[x] != 1) {
+		for(int x = 0; x < label_image.cols; x++) 
+		{
+			if(row[x] != 1) 
+			{
 				continue;
 			}
-			
+
 			cv::Rect rect;
-			cv::floodFill(label_image, cv::Point(x,y), label_count, &rect, 0, 0, 4);
+			cv::floodFill(label_image, cv::Point(x,y), label_count, &rect);
 			
-			std::vector <cv::Point2i> blob;
+			std::vector<cv::Point2i> blob;
 			
-			for(int i=rect.y; i < (rect.y+rect.height); i++) {
+			for(int i = rect.y; i < (rect.y + rect.height); i++)
+			{
 				int *row2 = (int*)label_image.ptr(i);
-				for(int j=rect.x; j < (rect.x+rect.width); j++) {
-					if(row2[j] != label_count) {
+				for(int j = rect.x; j < (rect.x + rect.width); j++) 
+				{
+					if(row2[j] != label_count) 
+					{
 						continue;
 					}
-					
 					blob.push_back(cv::Point2i(j,i));
 				}
 			}
-			
-			if(blob.size() > minArea)
+			if(blob.size() > MIN_AREA && blob.size() < MAX_AREA)
 				blobs.push_back(blob);
-			
 			label_count++;
 		}
 	}
 }
 
-
-/*
-- img -> imagen original
-- blobs_out -> vectot < BlobCenter > de img
-*/
-void  Img2Blob(const cv::Mat &img, vector< BlobCenter > &blobs_out, int frame )
+//提取blobs中单个blob的特征，point2i，center， id， frame存储在blobs_out中
+void  Blob(const cv::Mat img, vector<BlobCenter> &blobs_out, int frame)
 {
 	Mat binary;
-	
-	vector < vector<Point2i > > blobs;
+	vector<vector<Point2i>> blobs;
 	threshold(img, binary, 0.0, 1.0, cv::THRESH_BINARY);
-	
 	FindBlobs(binary, blobs);
 	
-	double aux_x;
-	double aux_y;
-	int Size;
+	int blob_size;
 	int id_blob = 1;
+	BlobCenter blob_temp;
 	
-	// calculo del centro de masa
-	for(size_t i=0; i < blobs.size(); i++) {	// cada etiqueta
-		aux_x = 0;
-		aux_y = 0;
-		BlobCenter  Bc;
-		Bc.blob = blobs[i];
-		Size = Bc.blob.size(); //cantidad de puntos dentro del blob
-		if(Size < TAM_MAX_OBJETOS){//si el objeto muy grande lo deja de lado 
-			for(size_t j=0; j < Size; j++) {
-				Bc.center.x += (double)Bc.blob[j].x;
-				Bc.center.y += (double)Bc.blob[j].y;
-			}
-			
-			Bc.center.x /= Size;
-			Bc.center.y /= Size;
-			
-			Bc.id = id_blob;
-			Bc.frame = frame;
-			id_blob++;
-			
-			blobs_out.push_back(Bc);			
+	for(int i=0; i < blobs.size(); i++) 
+	{
+		blob_temp.blob = blobs[i];
+		blob_size = blob_temp.blob.size(); 
+		for(int j=0; j < blob_size; j++) 
+		{
+			blob_temp.center.x += (double)blob_temp.blob[j].x;
+			blob_temp.center.y += (double)blob_temp.blob[j].y;
 		}
 		
+		blob_temp.center.x /= blob_size;
+		blob_temp.center.y /= blob_size;
+		
+		blob_temp.id = id_blob;
+		blob_temp.frame = frame;
+		id_blob++;
+		blobs_out.push_back(blob_temp);			
 	}
-	
 }
 
-/*
-POR EL MOMENTO NO SE USA POR ESO LA DEJO COMENTADA
-*/
-//void CenterDetector(Mat &threshold_output, Mat &out,vector<KeyPoint> &keyPoints)
-//{
-//	SimpleBlobDetector::Params params;
-//	
-//	params.minThreshold = 40;
-//	params.maxThreshold = 60;
-//	params.thresholdStep = 5;
-//	
-//	params.minArea = 100; 
-//	params.minConvexity = 0.3;fundar
-//	params.minInertiaRatio = 0.01;
-//	
-//	params.maxArea = 8000;
-//	params.maxConvexity = 10;
-//	
-//	params.filterByColor = false;
-//	params.filterByCircularity = false;
-//	
-//	line( threshold_output, Point(0, threshold_output.rows-1), Point( threshold_output.cols-1, threshold_output.rows-1 ), Scalar::all(255) );
-//	
-//	SimpleBlobDetector blobDetector( params );
-//	blobDetector.create("SimpleBlob");
-//	
-//	blobDetector.detect( threshold_output, keyPoints );
-//	drawKeypoints( threshold_output, keyPoints, out, CV_RGB(0,255,0), DrawMatchesFlags::DEFAULT);
-//	
-//}
+/*******************************************下面的函数应该是用于轨迹重组，但是效果不好，还没有具体看*******************************************/
+
+// void CenterDetector(Mat &threshold_output, Mat &out,vector<KeyPoint> &keyPoints)
+// {
+// 	SimpleBlobDetector::Params params;
+	
+// 	params.minThreshold = 40;
+// 	params.maxThreshold = 60;
+// 	params.thresholdStep = 5;
+	
+// 	params.minArea = 100; 
+// 	params.minConvexity = 0.3;fundar
+// 	params.minInertiaRatio = 0.01;
+	
+// 	params.maxArea = 8000;
+// 	params.maxConvexity = 10;
+	
+// 	params.filterByColor = false;
+// 	params.filterByCircularity = false;
+	
+// 	line( threshold_output, Point(0, threshold_output.rows-1), Point( threshold_output.cols-1, threshold_output.rows-1 ), Scalar::all(255) );
+	
+// 	SimpleBlobDetector blobDetector( params );
+// 	blobDetector.create("SimpleBlob");
+	
+// 	blobDetector.detect( threshold_output, keyPoints );
+// 	drawKeypoints( threshold_output, keyPoints, out, CV_RGB(0,255,0), DrawMatchesFlags::DEFAULT);
+	
+// }
 
 
-/*
-verifica que un id-viejo tenga asociado un único id-nuevo (el más cercano)
-*/
-void verificar_etiqueta(int id1,int id2, double min_dist_centers, vector< vector<double> > &etiquetas)
+void generateLableVec(const int min_dist_id, const int id, const double min_dist_centers, vector<vector<double>> &label_vec)
 {
 	bool flag = true;
-	
-	if(id1 != -1){
-		for(int i=0; i<etiquetas.size(); i++){
-			if(etiquetas[i][0] == (double)id1){
-				if(min_dist_centers < etiquetas[i][2]){
-					etiquetas[i][2] = min_dist_centers;
-					etiquetas[i][1] = id2; 
+	if(min_dist_id != -1)
+	{
+		for(int i = 0; i < label_vec.size(); i++)
+		{
+			if(label_vec[i][0] == (double)min_dist_id)
+			{
+				if(min_dist_centers < label_vec[i][2])
+				{
+					label_vec[i][1] = id;
+					label_vec[i][2] = min_dist_centers; 
 				}
 				flag = false;
 				break;
 			}
 		}
-		
-		if(flag){
+		if(flag)
+		{
 			vector<double> aux;
-			aux.push_back(id1);
-			aux.push_back(id2);
+			aux.push_back(min_dist_id);
+			aux.push_back(id);
 			aux.push_back(min_dist_centers);
-			etiquetas.push_back(aux);
+			label_vec.push_back(aux);
 		}
 	}
-	
 }
 
-
-/*
-b1 -> blobs_frame_old
-b2 -> blobs_frame
-etiquetas -> correspondencia entre id nuevo y viejo: [id_blob_old, id_blob_new, distancia_entre_centros]
-*/
-void correspondencias_id(vector < BlobCenter > &b1, vector < BlobCenter > &b2, vector< vector<double> > &etiquetas)
+//寻找每一帧blobs与前一帧blobs的关系
+void findCorrespondence(const vector<BlobCenter> b1, const vector<BlobCenter> b2, vector<vector<double>> &label_vec)
 {	
-	bool flag;
+	bool is_first_blob;
 	double dist_centers, min_dist_centers;
 	int min_dist_id;
 	
-	for (size_t i=0; i<b2.size(); i++){
+	for (int i = 0; i < b2.size(); i++)
+	{
 		min_dist_centers = 0;
 		min_dist_id = -1;
-		flag = true;
+		is_first_blob = true;
 		
-		for (size_t j=0; j<b1.size(); j++){
-			dist_centers = sqrt( pow(((double)b2[i].center.x - (double)b1[j].center.x), 2) +
-				pow(((double)b2[i].center.y - (double)b1[j].center.y), 2) );
-			
-			if(flag){
-				flag = false;
+		for (int j = 0; j < b1.size(); j++)
+		{
+			dist_centers = sqrt(pow(((double)b2[i].center.x - (double)b1[j].center.x), 2) + pow(((double)b2[i].center.y - (double)b1[j].center.y), 2));
+			if(is_first_blob)
+			{
+				is_first_blob = false;
 				min_dist_centers = dist_centers;
 				min_dist_id = b1[j].id;
 			}
-			else if(dist_centers < min_dist_centers){
+			else if(dist_centers < min_dist_centers)
+			{
 				min_dist_centers = dist_centers;
 				min_dist_id = b1[j].id;
 			}
 		}
-		
-		//verifico que no haya otro id2 asociado al id1 mas cercano identificado
-		verificar_etiqueta(min_dist_id, b2[i].id, min_dist_centers, etiquetas);
+		generateLableVec(min_dist_id, b2[i].id, min_dist_centers, label_vec);
 	}	
 }
 
 
-/*
-actualiza las etiquetas de los blobs del frame actual con las correspondidas del frame anterior
-y asigna etiquetas nuevas y únicas a los nuevos blobs dentro del frame
-*/
-void reEtiquetado(vector< BlobCenter > &blobs, vector< vector<double> > &etiquetas, int &next_id)
+void addLabelToObject(vector<BlobCenter> &blobs, vector<vector<double>> &label_vec, int &next_id)
 {
-	bool found; //si esta bandera es falsa, el blob es un nuevo objeto en el frame
-	
-	for(int i=0; i<blobs.size(); i++){
-		
+	bool found; 
+	for(int i = 0; i < blobs.size(); i++)
+	{
 		found = false;
-		
-		for(int j=0; j<etiquetas.size(); j++){
-			if(blobs[i].id == etiquetas[j][1]){
+		for(int j = 0; j < label_vec.size(); j++)
+		{
+			if(blobs[i].id == label_vec[j][1])
+			{
 				found = true;
-				blobs[i].id = etiquetas[j][0];
+				blobs[i].id = label_vec[j][0];
 				break;
 			}
 		}
-		
-		if(!found){
+		if(!found)
+		{
 			blobs[i].id = next_id;
 			next_id = next_id + 1;
 		}
 	}
-	
 }
 
-/**
-Colorea los blobs y los devuelve en una imagen
-@param blobs vector<BlobCenter> vector con todos los centros, ids, label, ...
-@param output Mat imagen de salida con los blobs pintados
-@param time double tiempo donde ocurre el suceso
-**/
-void paintBlobs(const vector < BlobCenter > &blobs, Mat &output, double time)
+void paintBlobs(const vector<BlobCenter> blobs, Mat &output, double time)
 {
-	std::vector<int> labelCheck;
 	unsigned char r;
 	unsigned char g;
 	unsigned char b;
 	
-	for(size_t i=0; i < blobs.size(); i++) {
-		
+	for(size_t i=0; i < blobs.size(); i++) 
+	{
 		vector<Point2i> blob = blobs[i].blob;
 		int label = blobs[i].id;
 		
@@ -316,44 +273,39 @@ void paintBlobs(const vector < BlobCenter > &blobs, Mat &output, double time)
 		g = label*100/10.0;
 		b = label*100/100.0;
 		
-		for(int j=0; j<blob.size(); j++){
+		for(int j=0; j<blob.size(); j++)
+		{
 			output.at<cv::Vec3b>(blob[j].y,blob[j].x)[0] = b;
 			output.at<cv::Vec3b>(blob[j].y,blob[j].x)[1] = g;
 			output.at<cv::Vec3b>(blob[j].y,blob[j].x)[2] = r;
 		}
-		
-#if MAS_INFO
-//		string etiqueta = to_string(label);
-		string etiqueta = to_string(time);
+
+		string etiqueta = to_string(label);
+		// string etiqueta = to_string(time);
 		double escala = 0.3f;
 		double grosor = 1;
-//		FONT_HERSHEY_SCRIPT_SIMPLEX
-//		FONT_HERSHEY_PLAIN
-		putText(output,etiqueta, cvPoint(blobs[i].center.x,blobs[i].center.y), FONT_HERSHEY_SCRIPT_SIMPLEX,	escala,	cvScalar(255,255,255), grosor);
-#endif	
+		putText(output,etiqueta, cvPoint(blobs[i].center.x,blobs[i].center.y), FONT_HERSHEY_SCRIPT_SIMPLEX,	escala,	cvScalar(255,255,255), grosor);	
 	}
-	
 }
-//
-//
 
-void FillObjects(const Mat &src, vector< BlobCenter > &blobs, vector <pair <vector<vector <int> > , vector<Mat> > > &Objects)
+
+void FillObjects(const Mat &src, vector<BlobCenter> &blobs, vector<pair<vector<vector<int>>, vector<Mat>>> &Objects)
 {
-	
-	for(int i=0; i<blobs.size(); i++){
-		
+	for(int i=0; i<blobs.size(); i++)
+	{
 		Mat obj_img = Mat::zeros(src.size(), CV_8UC3);
 		vector<Point2i> blob = blobs[i].blob;
 		int id = blobs[i].id;
 		
-		for(int j=0; j<blob.size(); j++){
-			//pinto en obj_img lo que haya en src en las coordenadas del blob
+		for(int j=0; j<blob.size(); j++)
+		{
 			obj_img.at<Vec3b>(blob[j].y, blob[j].x)[0] = src.at<Vec3b>(blob[j].y, blob[j].x)[0]; //b
 			obj_img.at<Vec3b>(blob[j].y, blob[j].x)[1] = src.at<Vec3b>(blob[j].y, blob[j].x)[1]; //g
 			obj_img.at<Vec3b>(blob[j].y, blob[j].x)[2] = src.at<Vec3b>(blob[j].y, blob[j].x)[2]; //r
 		}
 		
-		if(id < Objects.size()){
+		if(id < Objects.size())
+		{
 			vector <int> aux;
 			aux.push_back(blobs[i].center.x);
 			aux.push_back(blobs[i].center.y);
@@ -361,16 +313,16 @@ void FillObjects(const Mat &src, vector< BlobCenter > &blobs, vector <pair <vect
 			Objects[id].first.push_back(aux);
 			Objects[id].second.push_back(obj_img);
 		}
-		else{ //el primer frame en el vector siempre es negro completo
+		else
+		{ 
 			vector<Mat> aux;
-			
 			vector <int> aux2;
 			aux2.push_back(0);
 			aux2.push_back(0);
 			aux2.push_back(0);
 
-			
-			while(id >= Objects.size()){
+			while(id >= Objects.size())
+			{
 				pair <vector<vector <int> > , vector<Mat> > otro;
 				otro.first.push_back(aux2);
 				otro.second = aux;
@@ -385,49 +337,49 @@ void FillObjects(const Mat &src, vector< BlobCenter > &blobs, vector <pair <vect
 			Objects[id].second.push_back(obj_img);
 		}
 	}
-	
 }
-void FillObjects2(const Mat &src, vector< BlobCenter > &blobs, vector< vector< Mat > > &Objects)
-{
-	
-	for(int i=0; i<blobs.size(); i++){
-		
-		Mat obj_img = Mat::zeros(src.size(), CV_8UC3);
-		vector<Point2i> blob = blobs[i].blob;
-		int id = blobs[i].id;
-		
-		for(int j=0; j<blob.size(); j++){
-			//pinto en obj_img lo que haya en src en las coordenadas del blob
-			obj_img.at<Vec3b>(blob[j].y, blob[j].x)[0] = src.at<Vec3b>(blob[j].y, blob[j].x)[0]; //b
-			obj_img.at<Vec3b>(blob[j].y, blob[j].x)[1] = src.at<Vec3b>(blob[j].y, blob[j].x)[1]; //g
-			obj_img.at<Vec3b>(blob[j].y, blob[j].x)[2] = src.at<Vec3b>(blob[j].y, blob[j].x)[2]; //r
-		}
-		
-		if(id < Objects.size()){
-			Objects[id].push_back(obj_img);
-		}
-		else{ //el primer frame en el vector siempre es negro completo
-			vector<Mat> aux;
-			
-			while(id >= Objects.size()){
-				Objects.push_back(aux);
-			}
-			
-			Objects[id].push_back(obj_img);
-		}
-	}
-	
-}
-//
 
-/**
-recibe una mascara, de tres canales y donde tiene [0,0,0] reemplaza en 
-esa posicion por el valor de la imagen 
-**/
-void reemplaza(Mat &fondo, Mat &imagen){
-	for (int i=0;i<fondo.cols;i++){
-		for (int j=0;j<fondo.rows;j++){
-			if(!((imagen.at<Vec3b>(j, i)[0]==0) && (imagen.at<Vec3b>(j, i)[1]==0) && (imagen.at<Vec3b>(j, i)[2]==0))){
+
+// void FillObjects2(const Mat &src, vector< BlobCenter > &blobs, vector< vector< Mat > > &Objects)
+// {
+	
+// 	for(int i=0; i<blobs.size(); i++){
+		
+// 		Mat obj_img = Mat::zeros(src.size(), CV_8UC3);
+// 		vector<Point2i> blob = blobs[i].blob;
+// 		int id = blobs[i].id;
+		
+// 		for(int j=0; j<blob.size(); j++){
+// 			//pinto en obj_img lo que haya en src en las coordenadas del blob
+// 			obj_img.at<Vec3b>(blob[j].y, blob[j].x)[0] = src.at<Vec3b>(blob[j].y, blob[j].x)[0]; //b
+// 			obj_img.at<Vec3b>(blob[j].y, blob[j].x)[1] = src.at<Vec3b>(blob[j].y, blob[j].x)[1]; //g
+// 			obj_img.at<Vec3b>(blob[j].y, blob[j].x)[2] = src.at<Vec3b>(blob[j].y, blob[j].x)[2]; //r
+// 		}
+		
+// 		if(id < Objects.size()){
+// 			Objects[id].push_back(obj_img);
+// 		}
+// 		else{ //el primer frame en el vector siempre es negro completo
+// 			vector<Mat> aux;
+			
+// 			while(id >= Objects.size()){
+// 				Objects.push_back(aux);
+// 			}
+			
+// 			Objects[id].push_back(obj_img);
+// 		}
+// 	}
+// }
+
+
+void reemplaza(Mat &fondo, Mat &imagen)
+{
+	for (int i=0;i<fondo.cols;i++)
+	{
+		for (int j=0;j<fondo.rows;j++)
+		{
+			if(!((imagen.at<Vec3b>(j, i)[0]==0) && (imagen.at<Vec3b>(j, i)[1]==0) && (imagen.at<Vec3b>(j, i)[2]==0)))
+			{
 				fondo.at<Vec3b>(j, i)[0] = imagen.at<Vec3b>(j, i)[0]; //b
 				fondo.at<Vec3b>(j, i)[1] = imagen.at<Vec3b>(j, i)[1]; //g
 				fondo.at<Vec3b>(j, i)[2] = imagen.at<Vec3b>(j, i)[2]; //r
@@ -436,43 +388,27 @@ void reemplaza(Mat &fondo, Mat &imagen){
 	}
 	
 }
-//
-/**
-mostrar y guardar en video la salida de los eventos
 
 
-
-forma de almacenamiento:
-
-auto1 : frame1 fram2 frame3....
-auto2 : frame1 fram2 ....
-auto3 : frame1 fram2 frame4 frame5....
-auto4
-....
-**/
-///ACORDARSE DE MANDAR EL FONDO CHIQUITO
 void mostrar(const vector <pair <vector<vector <int> > , vector<Mat> > > &Objects2, const Mat &fondo, int ventana, VideoWriter &outputVideo, int FPS)
 {
 	vector <pair <vector<vector <int> > , vector<Mat> > > Objects = Objects2;
 	vector <pair <vector<vector <int> > , vector<Mat> > > window;
 	
-	int count = DELAY_EVENTOS; // espera entre frames para agregar objetos a la escena
-	
-	// para poder trabajar con estilo de cola
+	int count = DELAY_EVENTOS; 
 	reverse(Objects.begin(),Objects.end());
 
 	while(true)
 	{
-		if (!Objects.empty()) // si hay cosas que mostrar
+		if (!Objects.empty()) 
 		{
 			Mat frame = fondo.clone();
 			
-			// si la ventana (de objetos) le queda lugar y si hay objetos. Tengo permiso de frames (delay) para agregar
 			while((window.size()<ventana || window.size()<Objects.size()) && (count >= DELAY_EVENTOS))
 			{
 				window.insert(window.begin(),*(--Objects.end()));
 				Objects.pop_back();
-				count = 0; // inserte un nuevo objeto, contador de frames a cero!
+				count = 0; 
 			}
 			
 			for(int i = 0 ; i < window.size(); i++)
@@ -481,7 +417,7 @@ void mostrar(const vector <pair <vector<vector <int> > , vector<Mat> > > &Object
 				
 				vector< vector <int> > aux2 = window[i].first;
 				vector<int> aux = aux2[0];
-				string etiqueta = to_string(aux[2]/FPS / 60) + ":" +  to_string(aux[2]/FPS); // en el tercer lugar guarda los frames, y en la primera y segunda la posicio del centro
+				string etiqueta = to_string(aux[2]/FPS / 60) + ":" +  to_string(aux[2]/FPS);
 				double escala = 0.5f;
 				double grosor = 1.9f;
 #if EVENTOS_SEGUNDOS
@@ -496,24 +432,21 @@ void mostrar(const vector <pair <vector<vector <int> > , vector<Mat> > > &Object
 			}
 
 #if MOSTRAR_RESULTADO
-					
-			
 			imshow("Resultado (ESC para cortar)",frame);
 #endif
 			
-			count++; // ya tengo el frame, aumento el contador para dar espacio a uno mas
+			count++;
 			
-			// almacenamiento en video
 			if (!outputVideo.isOpened())
 			{
 				cout  << "\n\n\t NO SE PUEDE ESCRIBIR EN EL ARCHIVO!! " << endl;
 				return;
 			}
 			else{
-				outputVideo.write(frame); // guarda en disco
+				outputVideo.write(frame); 
 			}
 			
-			if (waitKey(50) >= 0)   // escape, corta el video
+			if (waitKey(50) >= 0)
 				break;
 			
 		}
@@ -524,38 +457,10 @@ void mostrar(const vector <pair <vector<vector <int> > , vector<Mat> > > &Object
 		}
 	}
 }
-//
-//
-/**
-calcula el fondo, en frame actual es el que lee, en mascara estan los 
-autos en 1 y el fondo en 0, fondo temporal va el fondo que llevo calculado, salida es la "salida"
-**/
-void extraerFondo(const Mat &frame_actual, const Mat &mascara, const Mat &fondo_temporal,Mat &salida)
-{
-	salida = fondo_temporal;	// el fondo temporal va a ser la salida actualizada
-	double alfa = FONDO_MERGE;	// parametro global para el mezclado del fondo
-	double beta = 1.0 - alfa;
-	
-	for (int i=0; i<mascara.cols; i++){
-		for (int j=0;j<mascara.rows;j++){
-			if( (!(mascara.at<uchar>(j, i)) )){
-				// cualquier objeto es 1, fondo es 0. entra a la ponderacion cualquier cosa distinta a un objeto
-				salida.at<Vec3b>(j, i)[0] = (alfa * salida.at<Vec3b>(j, i)[0]) + (beta * frame_actual.at<Vec3b>(j, i)[0]); //b
-				salida.at<Vec3b>(j, i)[1] = (alfa * salida.at<Vec3b>(j, i)[1]) + (beta * frame_actual.at<Vec3b>(j, i)[1]); //g
-				salida.at<Vec3b>(j, i)[2] = (alfa * salida.at<Vec3b>(j, i)[2]) + (beta * frame_actual.at<Vec3b>(j, i)[2]); //r
-			}
-		}
-	}
-}
-//
-//
-/**
-selecciona los objetos por determinado criterio
-**/
+
 void seleccionar(const vector <pair <vector<vector <int> > , vector<Mat> > > &Objects,vector <pair <vector<vector <int> > , vector<Mat> > > &Objects_aux)
 {
 	Objects_aux.clear();
-	/// por ahora tomo el color azul
 	
 	for (int i=0; i<Objects.size(); i++){
 		int contador = 0;
@@ -566,14 +471,13 @@ void seleccionar(const vector <pair <vector<vector <int> > , vector<Mat> > > &Ob
 			
 			Mat ig;
 			
-//			http://blog.damiles.com/2010/01/segmentation-object-detection-by-color/
 			inRange(objeto[j],Scalar(0,0,0),Scalar(10,10,10),ig); 
-			double tam_obj = objeto[j].cols*objeto[j].rows - countNonZero(ig); // obtengo la cantidad de pixeles que componen al objeto
+			double tam_obj = objeto[j].cols*objeto[j].rows - countNonZero(ig);
 			
-			if (tam_obj>TAM_MIN_OBJETOS*10)	// si es mayor a 10 veces el minimo
+			if (tam_obj > MIN_AREA*10)	
 			{
 				Mat obj_hsv,img1;
-				cvtColor(objeto[j],obj_hsv,CV_RGB2HSV); // paso un frame a hsv
+				cvtColor(objeto[j],obj_hsv,CV_RGB2HSV); 
 				Mat imgSplit[3];
 #if SEG_ROJO_AZUL
 				unsigned char rangoIni = 90;
@@ -583,7 +487,7 @@ void seleccionar(const vector <pair <vector<vector <int> > , vector<Mat> > > &Ob
 				unsigned char rangoFin = 90;
 #endif
 				
-				inRange(obj_hsv,Scalar(rangoIni,130,130),Scalar(rangoFin,255,255),img1); // mascara rojo con negro
+				inRange(obj_hsv,Scalar(rangoIni,130,130),Scalar(rangoFin,255,255),img1);
 
 				double tam_color = countNonZero(img1); // cuento la cantidad de azules
 
@@ -595,11 +499,11 @@ void seleccionar(const vector <pair <vector<vector <int> > , vector<Mat> > > &Ob
 				
 				double porcentaje = (tam_color/tam_obj)*100.0;
 //				cout << "por " << porcentaje << endl;
-				if (porcentaje>20.0) // si el 80 porciento del objeto es azul lo guardo
+				if (porcentaje>20.0) 
 					contador++;
 			}
 			
-			if (contador>1){ // 10 frames pasan la prueba
+			if (contador>1){
 				bandera=true;
 				cout << contador << endl;
 			}

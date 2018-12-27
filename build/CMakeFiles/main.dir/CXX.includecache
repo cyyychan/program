@@ -6,9 +6,9 @@
 
 #IncludeRegexTransform: 
 
-/home/pi/OpenSourceVS-master/Functions.h
+/home/pi/program/Functions.h
 opencv2/opencv.hpp
-/home/pi/OpenSourceVS-master/opencv2/opencv.hpp
+/home/pi/program/opencv2/opencv.hpp
 cmath
 -
 algorithm
@@ -16,9 +16,9 @@ algorithm
 vector
 -
 
-/home/pi/OpenSourceVS-master/main.cpp
+/home/pi/program/main.cpp
 opencv2/opencv.hpp
-/home/pi/OpenSourceVS-master/opencv2/opencv.hpp
+/home/pi/program/opencv2/opencv.hpp
 stdlib.h
 -
 stdio.h
@@ -27,10 +27,8 @@ iostream
 -
 sstream
 -
-vector
--
 Functions.h
-/home/pi/OpenSourceVS-master/Functions.h
+/home/pi/program/Functions.h
 
 /usr/local/include/opencv/cxcore.h
 opencv2/core/core_c.h

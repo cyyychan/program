@@ -1,4 +1,4 @@
-# Install script for directory: /home/pi/OpenSourceVS-master
+# Install script for directory: /home/pi/program
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -34,7 +34,7 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
-  include("/home/pi/OpenSourceVS-master/build/functions/cmake_install.cmake")
+  include("/home/pi/program/build/functions/cmake_install.cmake")
 
 endif()
 
@@ -46,5 +46,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "/home/pi/OpenSourceVS-master/build/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "/home/pi/program/build/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
