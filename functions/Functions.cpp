@@ -63,9 +63,9 @@ void extractBackground(const Mat src_frame, const Mat hull_mask, Mat &background
 	}
 }
 
+//区域生长找到连通域，单个连通域的点集用blob(vector<Point2i>)存储， 然后放入blobs(vector<vector<Point2i>>)中
 void FindBlobs(const Mat binary, vector<vector<Point2i>> &blobs)
 {
-	blobs.clear();
 	// Fill the label_image with the blobs
 	// 0  - background
 	// 1  - unlabelled foreground
@@ -74,13 +74,12 @@ void FindBlobs(const Mat binary, vector<vector<Point2i>> &blobs)
 	cv::Mat label_image;
 	binary.convertTo(label_image, CV_32SC1);
 	
-	int label_count = 2, 		// starts at 2 because 0,1 are used already
-		minArea = MIN_Area;  	// min area of the blob
+	int label_count = 2;
 	
-	for(int y=0; y < label_image.rows; y++) 
+	for(int y = 0; y < label_image.rows; y++) 
 	{
 		int *row = (int*)label_image.ptr(y);
-		for(int x=0; x < label_image.cols; x++) 
+		for(int x = 0; x < label_image.cols; x++) 
 		{
 			if(row[x] != 1) 
 			{
@@ -104,44 +103,42 @@ void FindBlobs(const Mat binary, vector<vector<Point2i>> &blobs)
 					blob.push_back(cv::Point2i(j,i));
 				}
 			}
-			if(blob.size() > minArea)
+			if(blob.size() > MIN_AREA && blob.size() < MAX_AREA)
 				blobs.push_back(blob);
 			label_count++;
 		}
 	}
 }
 
+//提取blobs中单个blob的特征，point2i，center， id， frame存储在blobs_out中
 void  Blob(const cv::Mat img, vector<BlobCenter> &blobs_out, int frame)
 {
 	Mat binary;
-	vector <vector<Point2i>> blobs;
+	vector<vector<Point2i>> blobs;
 	threshold(img, binary, 0.0, 1.0, cv::THRESH_BINARY);
 	FindBlobs(binary, blobs);
 	
 	int blob_size;
 	int id_blob = 1;
-	BlobCenter  blob_temp;
+	BlobCenter blob_temp;
 	
-	for(size_t i=0; i < blobs.size(); i++) 
+	for(int i=0; i < blobs.size(); i++) 
 	{
 		blob_temp.blob = blobs[i];
 		blob_size = blob_temp.blob.size(); 
-		if(blob_size < MAX_Area)
+		for(int j=0; j < blob_size; j++) 
 		{
-			for(size_t j=0; j < blob_size; j++) 
-			{
-				blob_temp.center.x += (double)blob_temp.blob[j].x;
-				blob_temp.center.y += (double)blob_temp.blob[j].y;
-			}
-			
-			blob_temp.center.x /= blob_size;
-			blob_temp.center.y /= blob_size;
-			
-			blob_temp.id = id_blob;
-			blob_temp.frame = frame;
-			id_blob++;
-			blobs_out.push_back(blob_temp);			
+			blob_temp.center.x += (double)blob_temp.blob[j].x;
+			blob_temp.center.y += (double)blob_temp.blob[j].y;
 		}
+		
+		blob_temp.center.x /= blob_size;
+		blob_temp.center.y /= blob_size;
+		
+		blob_temp.id = id_blob;
+		blob_temp.frame = frame;
+		id_blob++;
+		blobs_out.push_back(blob_temp);			
 	}
 }
 
@@ -187,8 +184,8 @@ void generateLableVec(const int min_dist_id, const int id, const double min_dist
 			{
 				if(min_dist_centers < label_vec[i][2])
 				{
-					label_vec[i][2] = min_dist_centers;
-					label_vec[i][1] = id; 
+					label_vec[i][1] = id;
+					label_vec[i][2] = min_dist_centers; 
 				}
 				flag = false;
 				break;
@@ -205,20 +202,20 @@ void generateLableVec(const int min_dist_id, const int id, const double min_dist
 	}
 }
 
-
+//寻找每一帧blobs与前一帧blobs的关系
 void findCorrespondence(const vector<BlobCenter> b1, const vector<BlobCenter> b2, vector<vector<double>> &label_vec)
 {	
 	bool is_first_blob;
 	double dist_centers, min_dist_centers;
 	int min_dist_id;
 	
-	for (int i=0; i < b2.size(); i++)
+	for (int i = 0; i < b2.size(); i++)
 	{
 		min_dist_centers = 0;
 		min_dist_id = -1;
 		is_first_blob = true;
 		
-		for (int j=0; j < b1.size(); j++)
+		for (int j = 0; j < b1.size(); j++)
 		{
 			dist_centers = sqrt(pow(((double)b2[i].center.x - (double)b1[j].center.x), 2) + pow(((double)b2[i].center.y - (double)b1[j].center.y), 2));
 			if(is_first_blob)
@@ -372,169 +369,147 @@ void FillObjects(const Mat &src, vector<BlobCenter> &blobs, vector<pair<vector<v
 // 			Objects[id].push_back(obj_img);
 // 		}
 // 	}
-	
 // }
-// //
 
-// /**
-// recibe una mascara, de tres canales y donde tiene [0,0,0] reemplaza en 
-// esa posicion por el valor de la imagen 
-// **/
-// void reemplaza(Mat &fondo, Mat &imagen){
-// 	for (int i=0;i<fondo.cols;i++){
-// 		for (int j=0;j<fondo.rows;j++){
-// 			if(!((imagen.at<Vec3b>(j, i)[0]==0) && (imagen.at<Vec3b>(j, i)[1]==0) && (imagen.at<Vec3b>(j, i)[2]==0))){
-// 				fondo.at<Vec3b>(j, i)[0] = imagen.at<Vec3b>(j, i)[0]; //b
-// 				fondo.at<Vec3b>(j, i)[1] = imagen.at<Vec3b>(j, i)[1]; //g
-// 				fondo.at<Vec3b>(j, i)[2] = imagen.at<Vec3b>(j, i)[2]; //r
-// 			}
-// 		}
-// 	}
+
+void reemplaza(Mat &fondo, Mat &imagen)
+{
+	for (int i=0;i<fondo.cols;i++)
+	{
+		for (int j=0;j<fondo.rows;j++)
+		{
+			if(!((imagen.at<Vec3b>(j, i)[0]==0) && (imagen.at<Vec3b>(j, i)[1]==0) && (imagen.at<Vec3b>(j, i)[2]==0)))
+			{
+				fondo.at<Vec3b>(j, i)[0] = imagen.at<Vec3b>(j, i)[0]; //b
+				fondo.at<Vec3b>(j, i)[1] = imagen.at<Vec3b>(j, i)[1]; //g
+				fondo.at<Vec3b>(j, i)[2] = imagen.at<Vec3b>(j, i)[2]; //r
+			}
+		}
+	}
 	
-// }
-// //
-// /**
-// mostrar y guardar en video la salida de los eventos
+}
 
 
-
-// forma de almacenamiento:
-
-// auto1 : frame1 fram2 frame3....
-// auto2 : frame1 fram2 ....
-// auto3 : frame1 fram2 frame4 frame5....
-// auto4
-// ....
-// **/
-// ///ACORDARSE DE MANDAR EL FONDO CHIQUITO
-// void mostrar(const vector <pair <vector<vector <int> > , vector<Mat> > > &Objects2, const Mat &fondo, int ventana, VideoWriter &outputVideo, int FPS)
-// {
-// 	vector <pair <vector<vector <int> > , vector<Mat> > > Objects = Objects2;
-// 	vector <pair <vector<vector <int> > , vector<Mat> > > window;
+void mostrar(const vector <pair <vector<vector <int> > , vector<Mat> > > &Objects2, const Mat &fondo, int ventana, VideoWriter &outputVideo, int FPS)
+{
+	vector <pair <vector<vector <int> > , vector<Mat> > > Objects = Objects2;
+	vector <pair <vector<vector <int> > , vector<Mat> > > window;
 	
-// 	int count = DELAY_EVENTOS; // espera entre frames para agregar objetos a la escena
-	
-// 	// para poder trabajar con estilo de cola
-// 	reverse(Objects.begin(),Objects.end());
+	int count = DELAY_EVENTOS; 
+	reverse(Objects.begin(),Objects.end());
 
-// 	while(true)
-// 	{
-// 		if (!Objects.empty()) // si hay cosas que mostrar
-// 		{
-// 			Mat frame = fondo.clone();
+	while(true)
+	{
+		if (!Objects.empty()) 
+		{
+			Mat frame = fondo.clone();
 			
-// 			// si la ventana (de objetos) le queda lugar y si hay objetos. Tengo permiso de frames (delay) para agregar
-// 			while((window.size()<ventana || window.size()<Objects.size()) && (count >= DELAY_EVENTOS))
-// 			{
-// 				window.insert(window.begin(),*(--Objects.end()));
-// 				Objects.pop_back();
-// 				count = 0; // inserte un nuevo objeto, contador de frames a cero!
-// 			}
+			while((window.size()<ventana || window.size()<Objects.size()) && (count >= DELAY_EVENTOS))
+			{
+				window.insert(window.begin(),*(--Objects.end()));
+				Objects.pop_back();
+				count = 0; 
+			}
 			
-// 			for(int i = 0 ; i < window.size(); i++)
-// 			{
-// 				reemplaza(frame,*(window[i].second.begin()));
+			for(int i = 0 ; i < window.size(); i++)
+			{
+				reemplaza(frame,*(window[i].second.begin()));
 				
-// 				vector< vector <int> > aux2 = window[i].first;
-// 				vector<int> aux = aux2[0];
-// 				string etiqueta = to_string(aux[2]/FPS / 60) + ":" +  to_string(aux[2]/FPS); // en el tercer lugar guarda los frames, y en la primera y segunda la posicio del centro
-// 				double escala = 0.5f;
-// 				double grosor = 1.9f;
-// #if EVENTOS_SEGUNDOS
-// 				putText(frame,etiqueta, cvPoint(aux[0],aux[1]), FONT_HERSHEY_SCRIPT_SIMPLEX,	escala,	cvScalar(255,255,255), grosor);
-// #endif
-// 				window[i].first.erase(window[i].first.begin());
-// 				window[i].second.erase(window[i].second.begin());
+				vector< vector <int> > aux2 = window[i].first;
+				vector<int> aux = aux2[0];
+				string etiqueta = to_string(aux[2]/FPS / 60) + ":" +  to_string(aux[2]/FPS);
+				double escala = 0.5f;
+				double grosor = 1.9f;
+#if EVENTOS_SEGUNDOS
+				putText(frame,etiqueta, cvPoint(aux[0],aux[1]), FONT_HERSHEY_SCRIPT_SIMPLEX,	escala,	cvScalar(255,255,255), grosor);
+#endif
+				window[i].first.erase(window[i].first.begin());
+				window[i].second.erase(window[i].second.begin());
 				
-// 				if(window[i].second.empty()){
-// 					window.erase(window.begin()+i);
-// 				}
-// 			}
+				if(window[i].second.empty()){
+					window.erase(window.begin()+i);
+				}
+			}
 
-// #if MOSTRAR_RESULTADO
-					
+#if MOSTRAR_RESULTADO
+			imshow("Resultado (ESC para cortar)",frame);
+#endif
 			
-// 			imshow("Resultado (ESC para cortar)",frame);
-// #endif
+			count++;
 			
-// 			count++; // ya tengo el frame, aumento el contador para dar espacio a uno mas
+			if (!outputVideo.isOpened())
+			{
+				cout  << "\n\n\t NO SE PUEDE ESCRIBIR EN EL ARCHIVO!! " << endl;
+				return;
+			}
+			else{
+				outputVideo.write(frame); 
+			}
 			
-// 			// almacenamiento en video
-// 			if (!outputVideo.isOpened())
-// 			{
-// 				cout  << "\n\n\t NO SE PUEDE ESCRIBIR EN EL ARCHIVO!! " << endl;
-// 				return;
-// 			}
-// 			else{
-// 				outputVideo.write(frame); // guarda en disco
-// 			}
+			if (waitKey(50) >= 0)
+				break;
 			
-// 			if (waitKey(50) >= 0)   // escape, corta el video
-// 				break;
-			
-// 		}
-// 		else {
-// 			cout << "\n\n\t No hay mas eventos! Saliendo... " << endl;
-// 			outputVideo.release();
-// 			return;
-// 		}
-// 	}
-// }
+		}
+		else {
+			cout << "\n\n\t No hay mas eventos! Saliendo... " << endl;
+			outputVideo.release();
+			return;
+		}
+	}
+}
 
-// void seleccionar(const vector <pair <vector<vector <int> > , vector<Mat> > > &Objects,vector <pair <vector<vector <int> > , vector<Mat> > > &Objects_aux)
-// {
-// 	Objects_aux.clear();
-// 	/// por ahora tomo el color azul
+void seleccionar(const vector <pair <vector<vector <int> > , vector<Mat> > > &Objects,vector <pair <vector<vector <int> > , vector<Mat> > > &Objects_aux)
+{
+	Objects_aux.clear();
 	
-// 	for (int i=0; i<Objects.size(); i++){
-// 		int contador = 0;
-// 		bool bandera = false;
+	for (int i=0; i<Objects.size(); i++){
+		int contador = 0;
+		bool bandera = false;
 		
-// 		vector<Mat> objeto = Objects[i].second;
-// 		for (int j=0; j<objeto.size(); j++){
+		vector<Mat> objeto = Objects[i].second;
+		for (int j=0; j<objeto.size(); j++){
 			
-// 			Mat ig;
+			Mat ig;
 			
-// //			http://blog.damiles.com/2010/01/segmentation-object-detection-by-color/
-// 			inRange(objeto[j],Scalar(0,0,0),Scalar(10,10,10),ig); 
-// 			double tam_obj = objeto[j].cols*objeto[j].rows - countNonZero(ig); // obtengo la cantidad de pixeles que componen al objeto
+			inRange(objeto[j],Scalar(0,0,0),Scalar(10,10,10),ig); 
+			double tam_obj = objeto[j].cols*objeto[j].rows - countNonZero(ig);
 			
-// 			if (tam_obj>TAM_MIN_OBJETOS*10)	// si es mayor a 10 veces el minimo
-// 			{
-// 				Mat obj_hsv,img1;
-// 				cvtColor(objeto[j],obj_hsv,CV_RGB2HSV); // paso un frame a hsv
-// 				Mat imgSplit[3];
-// #if SEG_ROJO_AZUL
-// 				unsigned char rangoIni = 90;
-// 				unsigned char rangoFin = 130;
-// #else
-// 				unsigned char rangoIni = 50;
-// 				unsigned char rangoFin = 90;
-// #endif
+			if (tam_obj > MIN_AREA*10)	
+			{
+				Mat obj_hsv,img1;
+				cvtColor(objeto[j],obj_hsv,CV_RGB2HSV); 
+				Mat imgSplit[3];
+#if SEG_ROJO_AZUL
+				unsigned char rangoIni = 90;
+				unsigned char rangoFin = 130;
+#else
+				unsigned char rangoIni = 50;
+				unsigned char rangoFin = 90;
+#endif
 				
-// 				inRange(obj_hsv,Scalar(rangoIni,130,130),Scalar(rangoFin,255,255),img1); // mascara rojo con negro
+				inRange(obj_hsv,Scalar(rangoIni,130,130),Scalar(rangoFin,255,255),img1);
 
-// 				double tam_color = countNonZero(img1); // cuento la cantidad de azules
+				double tam_color = countNonZero(img1); // cuento la cantidad de azules
 
-// //				imshow("asd",objeto[j]);imshow("asd2",img1);waitKey(0);
-// //				cout << "tamanio obj: " << tam_obj << " tamanio color: " << tam_color << endl;
-// //				imshow("H",imgSplit[0]);imshow("S",imgSplit[1]);imshow("V",imgSplit[2]);
-// //				imshow("salida",objeto[j]);
-// //				imshow("azul",img1);waitKey(0);
+//				imshow("asd",objeto[j]);imshow("asd2",img1);waitKey(0);
+//				cout << "tamanio obj: " << tam_obj << " tamanio color: " << tam_color << endl;
+//				imshow("H",imgSplit[0]);imshow("S",imgSplit[1]);imshow("V",imgSplit[2]);
+//				imshow("salida",objeto[j]);
+//				imshow("azul",img1);waitKey(0);
 				
-// 				double porcentaje = (tam_color/tam_obj)*100.0;
-// //				cout << "por " << porcentaje << endl;
-// 				if (porcentaje>20.0) // si el 80 porciento del objeto es azul lo guardo
-// 					contador++;
-// 			}
+				double porcentaje = (tam_color/tam_obj)*100.0;
+//				cout << "por " << porcentaje << endl;
+				if (porcentaje>20.0) 
+					contador++;
+			}
 			
-// 			if (contador>1){ // 10 frames pasan la prueba
-// 				bandera=true;
-// 				cout << contador << endl;
-// 			}
-// 		}
-// 		if (bandera)
-// 			Objects_aux.push_back(Objects[i]);
-// 	}
-// 	cout << "asdsad: " << Objects.size() << " " << Objects_aux.size() << endl;
-// }
+			if (contador>1){
+				bandera=true;
+				cout << contador << endl;
+			}
+		}
+		if (bandera)
+			Objects_aux.push_back(Objects[i]);
+	}
+	cout << "asdsad: " << Objects.size() << " " << Objects_aux.size() << endl;
+}

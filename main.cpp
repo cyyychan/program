@@ -16,10 +16,10 @@ int main()
 	Size video_size = Size((int)stream.get(CV_CAP_PROP_FRAME_WIDTH) / RATIO, (int)stream.get(CV_CAP_PROP_FRAME_HEIGHT)  /RATIO);
 	int codec = static_cast<int>(stream.get(CV_CAP_PROP_FOURCC));
 	double frame_rate = stream.get(CV_CAP_PROP_FPS);
-	// VideoWriter outputVideo(RESULT_VIDEO, codec, frame_rate, video_size, true);
+	VideoWriter outputVideo(RESULT_VIDEO, codec, frame_rate, video_size, true);
 	 
 	Ptr< BackgroundSubtractor> pMOG2;
-	pMOG2 = createBackgroundSubtractorMOG2();
+	pMOG2 = createBackgroundSubtractorMOG2();	
 	Mat frame, src_frame, preprocessed_frame;
 
 	Mat front_mask;			//前景的mask
@@ -35,7 +35,7 @@ int main()
 	int ratio = 2, next_id = 1;
 	bool is_first_frame = true;
 	vector<vector<double>> label_vec;		//用于存储标记的vector
-	vector <pair<vector<vector<int>>, vector<Mat>>> Objects, Objects_copia;	
+	// vector <pair<vector<vector<int>>, vector<Mat>>> Objects, Objects_copia;	
 
 	Mat colored_output; 
 	
@@ -48,8 +48,8 @@ int main()
 			break;
 		}
 		src_frame = frame.clone();
-		// resize(src_frame, src_frame, Size(src_frame.size[1]/2, src_frame.size[0]/2));
-		// imshow("src", src_frame);
+		resize(src_frame, src_frame, Size(src_frame.size[1]/2, src_frame.size[0]/2));
+		imshow("src", src_frame);
 		
 		//preprocess
 		GaussianBlur(src_frame, preprocessed_frame, Size(9, 9), 0, 0);
@@ -88,8 +88,8 @@ int main()
 		// imshow("background", background);
 
 		/*****************************************利用物体轨迹进行轨迹重组**********************************/
-		//对不同帧中的相同物体进行标记
-		if(is_first_frame && (blobs.size() > 0) )
+		//对不同帧中的相同物体进行标记, next_id即为每一帧中出现物体的总的计数
+		if(is_first_frame && (blobs.size() > 0))
 		{
 			is_first_frame = false;
 			for(int t=0; t < blobs.size(); t++)
@@ -104,45 +104,45 @@ int main()
 			addLabelToObject(blobs, label_vec, next_id);
 
 			/*********************演示找出来不同帧中的相同物体，做标记************************/
-			// colored_output = Mat::zeros(src_frame.size(), CV_8UC3);
-			// double time = frame_num / frame_rate;
-			// paintBlobs(blobs, colored_output, time);
-			// imshow("colored_out", colored_output);
+			colored_output = Mat::zeros(src_frame.size(), CV_8UC3);
+			double time = frame_num / frame_rate;
+			paintBlobs(blobs, colored_output, time);
+			imshow("colored_out", colored_output);
 		}
 
-		if(blobs.size() > 0)
-		{
-			FillObjects(src_frame, blobs, Objects);
-		}
-		imshow("blobs", src_frame);
+		// if(blobs.size() > 0)
+		// {
+		// 	FillObjects(src_frame, blobs, Objects);
+		// }
+		// imshow("blobs", src_frame);
 		
 		blobs_old = blobs;
 		blobs.clear();
 		label_vec.clear();
 		frame_num++;
-		if(cvWaitKey(300) > 0) break;
+		if(cvWaitKey(30) > 0) break;
 	}
 
-	/************************************暂时不知道具体作用************************************/			
-	/*
-	Objects_copia = Objects;		
-	Objects.clear();				
-	for(int i=0; i<Objects_copia.size(); i++)
-	{
-		if(Objects_copia[i].second.size() > 10)
-		{
-			Objects.push_back(Objects_copia[i]);
-			
-		}
-	}
-	Mat fondo = imread(FONDO_NOMBRE,3);
-
-	vector <pair < vector<vector <int> > , vector<Mat> > > Objects_aux;
-	seleccionar(Objects,Objects_aux);
-	Objects = Objects_aux;
+	/***********************************暂时不知道具体作用************************************/			
 	
-	mostrar(Objects,fondo,CANTIDAD_EVENTOS, outputVideo,frame_rate);
-	*/
+	// Objects_copia = Objects;		
+	// Objects.clear();				
+	// for(int i=0; i<Objects_copia.size(); i++)
+	// {
+	// 	if(Objects_copia[i].second.size() > 10)
+	// 	{
+	// 		Objects.push_back(Objects_copia[i]);
+			
+	// 	}
+	// }
+	// Mat fondo = imread(BACKGROUND_INITIAL,3);
+
+	// vector<pair<vector<vector<int>>, vector<Mat>>> Objects_aux;
+	// seleccionar(Objects,Objects_aux);
+	// Objects = Objects_aux;
+
+	// mostrar(Objects,fondo,CANTIDAD_EVENTOS, outputVideo,frame_rate);
+	
 	return 0;
 }
 
