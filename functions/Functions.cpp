@@ -142,37 +142,6 @@ void  Blob(const cv::Mat img, vector<BlobCenter> &blobs_out, int frame)
 	}
 }
 
-/*******************************************下面的函数应该是用于轨迹重组，但是效果不好，还没有具体看*******************************************/
-
-// void CenterDetector(Mat &threshold_output, Mat &out,vector<KeyPoint> &keyPoints)
-// {
-// 	SimpleBlobDetector::Params params;
-	
-// 	params.minThreshold = 40;
-// 	params.maxThreshold = 60;
-// 	params.thresholdStep = 5;
-	
-// 	params.minArea = 100; 
-// 	params.minConvexity = 0.3;fundar
-// 	params.minInertiaRatio = 0.01;
-	
-// 	params.maxArea = 8000;
-// 	params.maxConvexity = 10;
-	
-// 	params.filterByColor = false;
-// 	params.filterByCircularity = false;
-	
-// 	line( threshold_output, Point(0, threshold_output.rows-1), Point( threshold_output.cols-1, threshold_output.rows-1 ), Scalar::all(255) );
-	
-// 	SimpleBlobDetector blobDetector( params );
-// 	blobDetector.create("SimpleBlob");
-	
-// 	blobDetector.detect( threshold_output, keyPoints );
-// 	drawKeypoints( threshold_output, keyPoints, out, CV_RGB(0,255,0), DrawMatchesFlags::DEFAULT);
-	
-// }
-
-
 void generateLableVec(const int min_dist_id, const int id, const double min_dist_centers, vector<vector<double>> &label_vec)
 {
 	bool flag = true;
@@ -280,11 +249,11 @@ void paintBlobs(const vector<BlobCenter> blobs, Mat &output, double time)
 			output.at<cv::Vec3b>(blob[j].y,blob[j].x)[2] = r;
 		}
 
-		string etiqueta = to_string(label);
-		// string etiqueta = to_string(time);
+		string text = to_string(label);
+		// string text = to_string(time);
 		double escala = 0.3f;
 		double grosor = 1;
-		putText(output,etiqueta, cvPoint(blobs[i].center.x,blobs[i].center.y), FONT_HERSHEY_SCRIPT_SIMPLEX,	escala,	cvScalar(255,255,255), grosor);	
+		putText(output, text, cvPoint(blobs[i].center.x,blobs[i].center.y), FONT_HERSHEY_SCRIPT_SIMPLEX, escala, cvScalar(255,255,255), grosor);	
 	}
 }
 
@@ -340,49 +309,17 @@ void FillObjects(const Mat &src, vector<BlobCenter> &blobs, vector<pair<vector<v
 }
 
 
-// void FillObjects2(const Mat &src, vector< BlobCenter > &blobs, vector< vector< Mat > > &Objects)
-// {
-	
-// 	for(int i=0; i<blobs.size(); i++){
-		
-// 		Mat obj_img = Mat::zeros(src.size(), CV_8UC3);
-// 		vector<Point2i> blob = blobs[i].blob;
-// 		int id = blobs[i].id;
-		
-// 		for(int j=0; j<blob.size(); j++){
-// 			//pinto en obj_img lo que haya en src en las coordenadas del blob
-// 			obj_img.at<Vec3b>(blob[j].y, blob[j].x)[0] = src.at<Vec3b>(blob[j].y, blob[j].x)[0]; //b
-// 			obj_img.at<Vec3b>(blob[j].y, blob[j].x)[1] = src.at<Vec3b>(blob[j].y, blob[j].x)[1]; //g
-// 			obj_img.at<Vec3b>(blob[j].y, blob[j].x)[2] = src.at<Vec3b>(blob[j].y, blob[j].x)[2]; //r
-// 		}
-		
-// 		if(id < Objects.size()){
-// 			Objects[id].push_back(obj_img);
-// 		}
-// 		else{ //el primer frame en el vector siempre es negro completo
-// 			vector<Mat> aux;
-			
-// 			while(id >= Objects.size()){
-// 				Objects.push_back(aux);
-// 			}
-			
-// 			Objects[id].push_back(obj_img);
-// 		}
-// 	}
-// }
-
-
-void reemplaza(Mat &fondo, Mat &imagen)
+void relocate(Mat &background, Mat &image)
 {
-	for (int i=0;i<fondo.cols;i++)
+	for (int i=0;i<background.cols;i++)
 	{
-		for (int j=0;j<fondo.rows;j++)
+		for (int j=0;j<background.rows;j++)
 		{
-			if(!((imagen.at<Vec3b>(j, i)[0]==0) && (imagen.at<Vec3b>(j, i)[1]==0) && (imagen.at<Vec3b>(j, i)[2]==0)))
+			if(!((image.at<Vec3b>(j, i)[0]==0) && (image.at<Vec3b>(j, i)[1]==0) && (image.at<Vec3b>(j, i)[2]==0)))
 			{
-				fondo.at<Vec3b>(j, i)[0] = imagen.at<Vec3b>(j, i)[0]; //b
-				fondo.at<Vec3b>(j, i)[1] = imagen.at<Vec3b>(j, i)[1]; //g
-				fondo.at<Vec3b>(j, i)[2] = imagen.at<Vec3b>(j, i)[2]; //r
+				background.at<Vec3b>(j, i)[0] = image.at<Vec3b>(j, i)[0]; //b
+				background.at<Vec3b>(j, i)[1] = image.at<Vec3b>(j, i)[1]; //g
+				background.at<Vec3b>(j, i)[2] = image.at<Vec3b>(j, i)[2]; //r
 			}
 		}
 	}
@@ -390,126 +327,99 @@ void reemplaza(Mat &fondo, Mat &imagen)
 }
 
 
-void mostrar(const vector <pair <vector<vector <int> > , vector<Mat> > > &Objects2, const Mat &fondo, int ventana, VideoWriter &outputVideo, int FPS)
+void synthesis(vector<pair<vector<vector<int>>, vector<Mat>>> Objects, const Mat background, VideoWriter &outputVideo, const int FPS)
 {
-	vector <pair <vector<vector <int> > , vector<Mat> > > Objects = Objects2;
-	vector <pair <vector<vector <int> > , vector<Mat> > > window;
-	
-	int count = DELAY_EVENTOS; 
+	vector<pair<vector<vector<int>>, vector<Mat>>> window;
+	int count = DELAY_EVENTS; 
 	reverse(Objects.begin(),Objects.end());
 
 	while(true)
 	{
-		if (!Objects.empty()) 
+		if (Objects.empty()) 
 		{
-			Mat frame = fondo.clone();
-			
-			while((window.size()<ventana || window.size()<Objects.size()) && (count >= DELAY_EVENTOS))
-			{
-				window.insert(window.begin(),*(--Objects.end()));
-				Objects.pop_back();
-				count = 0; 
-			}
-			
-			for(int i = 0 ; i < window.size(); i++)
-			{
-				reemplaza(frame,*(window[i].second.begin()));
-				
-				vector< vector <int> > aux2 = window[i].first;
-				vector<int> aux = aux2[0];
-				string etiqueta = to_string(aux[2]/FPS / 60) + ":" +  to_string(aux[2]/FPS);
-				double escala = 0.5f;
-				double grosor = 1.9f;
-#if EVENTOS_SEGUNDOS
-				putText(frame,etiqueta, cvPoint(aux[0],aux[1]), FONT_HERSHEY_SCRIPT_SIMPLEX,	escala,	cvScalar(255,255,255), grosor);
-#endif
-				window[i].first.erase(window[i].first.begin());
-				window[i].second.erase(window[i].second.begin());
-				
-				if(window[i].second.empty()){
-					window.erase(window.begin()+i);
-				}
-			}
-
-#if MOSTRAR_RESULTADO
-			imshow("Resultado (ESC para cortar)",frame);
-#endif
-			
-			count++;
-			
-			if (!outputVideo.isOpened())
-			{
-				cout  << "\n\n\t NO SE PUEDE ESCRIBIR EN EL ARCHIVO!! " << endl;
-				return;
-			}
-			else{
-				outputVideo.write(frame); 
-			}
-			
-			if (waitKey(50) >= 0)
-				break;
-			
+			cout << "\n no objects" << endl;
+			break;
 		}
-		else {
-			cout << "\n\n\t No hay mas eventos! Saliendo... " << endl;
-			outputVideo.release();
+
+		Mat frame = background.clone();
+		int n = 0;
+		while((window.size() < EVENTS_NUM || window.size() < Objects.size()) && (count >= DELAY_EVENTS))
+		{
+			// printf("***%d\n", n++);
+			window.insert(window.begin(), *(--Objects.end()));
+			Objects.pop_back();
+			count = 0; 
+		}
+		// printf("window: %d\n", window.size());
+		// printf("d: %d\n", count);
+		
+		for(int i = 0 ; i < window.size(); i++)
+		{
+			relocate(frame, *(window[i].second.begin()));
+			
+			/**************************************************put text**************************************************/
+			vector<vector<int>> aux2 = window[i].first;
+			vector<int> aux = aux2[0];
+			string text = to_string(aux[2]/FPS / 60) + ":" +  to_string(aux[2] / FPS);
+
+			putText(frame, text, cvPoint(aux[0],aux[1]), FONT_HERSHEY_SCRIPT_SIMPLEX, 0.3f, cvScalar(0,0,255));
+			/************************************************************************************************************/
+
+			window[i].first.erase(window[i].first.begin());
+			window[i].second.erase(window[i].second.begin());
+			if(window[i].second.empty())
+			{
+				window.erase(window.begin()+i);
+			}
+		}
+		count++;
+		imshow("result",frame);
+		if (waitKey(50) >= 0)
+			break;
+		if (!outputVideo.isOpened())
+		{
+			cout  << "\n fatol error: write to file!! " << endl;
 			return;
 		}
+		else
+		{
+			outputVideo.write(frame); 
+		}
 	}
+	outputVideo.release();
 }
 
-void seleccionar(const vector <pair <vector<vector <int> > , vector<Mat> > > &Objects,vector <pair <vector<vector <int> > , vector<Mat> > > &Objects_aux)
+void select(const vector<pair<vector<vector<int>>, vector<Mat>>> Objects, vector<pair<vector<vector<int>>, vector<Mat>>> &Objects_aux)
 {
 	Objects_aux.clear();
 	
-	for (int i=0; i<Objects.size(); i++){
-		int contador = 0;
-		bool bandera = false;
-		
-		vector<Mat> objeto = Objects[i].second;
-		for (int j=0; j<objeto.size(); j++){
-			
+	for (int i=0; i<Objects.size(); i++)
+	{
+		int count = 0;
+		vector<Mat> obj = Objects[i].second;
+
+		for (int j=0; j<obj.size(); j++)
+		{
 			Mat ig;
+			inRange(obj[j], Scalar(0,0,0), Scalar(10,10,10), ig); 
+			double tam_obj = obj[j].cols * obj[j].rows - countNonZero(ig);
+			// printf("tam_obj: %f\n", tam_obj);
 			
-			inRange(objeto[j],Scalar(0,0,0),Scalar(10,10,10),ig); 
-			double tam_obj = objeto[j].cols*objeto[j].rows - countNonZero(ig);
-			
-			if (tam_obj > MIN_AREA*10)	
+			if (tam_obj > MIN_AREA*5)	
 			{
-				Mat obj_hsv,img1;
-				cvtColor(objeto[j],obj_hsv,CV_RGB2HSV); 
-				Mat imgSplit[3];
-#if SEG_ROJO_AZUL
-				unsigned char rangoIni = 90;
-				unsigned char rangoFin = 130;
-#else
-				unsigned char rangoIni = 50;
-				unsigned char rangoFin = 90;
-#endif
+				// Mat obj_hsv, img1;
+				// cvtColor(obj[j], obj_hsv, CV_RGB2HSV); 
+				// inRange(obj_hsv, Scalar(50,130,130), Scalar(90,255,255), img1);
 				
-				inRange(obj_hsv,Scalar(rangoIni,130,130),Scalar(rangoFin,255,255),img1);
-
-				double tam_color = countNonZero(img1); // cuento la cantidad de azules
-
-//				imshow("asd",objeto[j]);imshow("asd2",img1);waitKey(0);
-//				cout << "tamanio obj: " << tam_obj << " tamanio color: " << tam_color << endl;
-//				imshow("H",imgSplit[0]);imshow("S",imgSplit[1]);imshow("V",imgSplit[2]);
-//				imshow("salida",objeto[j]);
-//				imshow("azul",img1);waitKey(0);
-				
-				double porcentaje = (tam_color/tam_obj)*100.0;
-//				cout << "por " << porcentaje << endl;
-				if (porcentaje>20.0) 
-					contador++;
-			}
-			
-			if (contador>1){
-				bandera=true;
-				cout << contador << endl;
+				// double tam_color = countNonZero(img1);
+				// printf("tam_color: %f\n", tam_color);
+				// double porcentaje = (tam_color / tam_obj) * 100.0;
+				// if (porcentaje > 20.0) 
+				count++;
 			}
 		}
-		if (bandera)
+		if (count>1)
 			Objects_aux.push_back(Objects[i]);
 	}
-	cout << "asdsad: " << Objects.size() << " " << Objects_aux.size() << endl;
+	cout << "size: " << Objects.size() << "\t" << Objects_aux.size() << endl;
 }

@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <vector>
 
-// #define MAS_INFO false
+#define MAS_INFO false
 
 // background
 #define BACKGROUND_CALC_FRAME 1
@@ -12,21 +12,16 @@
 #define BACKGROUND_INITIAL "../background.bmp"
 
 // segment
-#define MAX_AREA 7500  //前景物体大小阈值
-#define MIN_AREA 300		
+#define MAX_AREA 15000  //前景物体大小阈值
+#define MIN_AREA 20		
 #define LEARNING_RATE 0.005f
-// #define SEG_ROJO_AZUL true
 
-
-// mostrar
-#define DELAY_EVENTOS 10
-#define MOSTRAR_RESULTADO true
-#define CANTIDAD_EVENTOS 30
-#define EVENTOS_SEGUNDOS true
-
+// synthesis
+#define DELAY_EVENTS 20
+#define EVENTS_NUM 30
 
 // videos
-#define SOURCE_VIDEO "../vtest.avi"
+#define SOURCE_VIDEO "../video.mp4"
 #define RESULT_VIDEO "result.avi"
 #define RATIO 2
 
@@ -52,8 +47,8 @@ void addLabelToObject(vector<BlobCenter> &blobs, vector<vector<double>> &label_v
 void paintBlobs(const vector <BlobCenter> blobs, Mat &output, double time);
 void FillObjects(const Mat &src, vector< BlobCenter > &blobs, vector <pair <vector<vector <int> > , vector<Mat> > > &Objects);
 
-// void FillObjects2(const Mat &src, vector< BlobCenter > &blobs, vector< vector< Mat > > &Objects);
-void reemplaza(Mat &fondo, Mat &imagen);
-void mostrar(const vector <pair <vector<vector <int> > , vector<Mat> > > &Objects2, const Mat &fondo, int ventana, VideoWriter &outputVideo, int FPS);
-void seleccionar(const vector <pair <vector<vector <int> > , vector<Mat> > > &Objects,vector <pair <vector<vector <int> > , vector<Mat> > > &Objects_aux);
+void select(const vector<pair<vector<vector<int>>, vector<Mat>>> Objects, vector<pair<vector<vector<int>>, vector<Mat>>> &Objects_aux);
+void relocate(Mat &background, Mat &image);
+void synthesis(vector<pair<vector<vector<int>>, vector<Mat>>> Objects, const Mat backgroud, VideoWriter &outputVideo, const int FPS);
+
 

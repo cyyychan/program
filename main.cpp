@@ -24,7 +24,7 @@ int main()
 
 	Mat front_mask;			//前景的mask
 	Mat morpho_element;		//形态学算子
-	int morph_size = 2;		//设置形态学算子大小
+	int morph_size = 1;		//设置形态学算子大小
 	Mat image_convexhull;	//移动物体的凸包在src_frame上的显示
 	
 	int background_frames_for_calc = frame_rate * BACKGROUND_CALC_FRAME; //计算背景所用的帧数
@@ -35,29 +35,29 @@ int main()
 	int ratio = 2, next_id = 1;
 	bool is_first_frame = true;
 	vector<vector<double>> label_vec;		//用于存储标记的vector
-	// vector <pair<vector<vector<int>>, vector<Mat>>> Objects, Objects_copia;	
+	vector<pair<vector<vector<int>>, vector<Mat>>> Objects;	
 
-	Mat colored_output; 
+	Mat colored_output;
 	
 	while (true) 
 	{   
 		stream.read(frame);
 		if(frame.empty())
 		{
-			std::cout<<"no video frame"<<std::endl;
+			std::cout<<"no video frashipinme"<<std::endl;
 			break;
 		}
 		src_frame = frame.clone();
-		resize(src_frame, src_frame, Size(src_frame.size[1]/2, src_frame.size[0]/2));
+		resize(src_frame, src_frame, Size(src_frame.size[1] / RATIO, src_frame.size[0] / RATIO));
 		imshow("src", src_frame);
 		
 		//preprocess
-		GaussianBlur(src_frame, preprocessed_frame, Size(9, 9), 0, 0);
+		GaussianBlur(src_frame, preprocessed_frame, Size(3, 3), 0, 0);
 		
 		//bgs
 		pMOG2->apply(preprocessed_frame, front_mask, LEARNING_RATE);
 		GaussianBlur(front_mask, front_mask, Size(9, 9), 0, 0);
-		threshold(front_mask, front_mask, 200, 255,0 );
+		threshold(front_mask, front_mask, 200, 255, 0);
 		morpho_element = getStructuringElement(cv::MORPH_RECT, Size( 2 * morph_size + 1, 2 * morph_size + 1));
 		morphologyEx(front_mask, front_mask, cv::MORPH_OPEN, morpho_element);
 		morphologyEx(front_mask, front_mask, cv::MORPH_CLOSE, morpho_element);
@@ -85,11 +85,11 @@ int main()
 			if(frame_num == 0) background = imread(BACKGROUND_INITIAL);
 			else extractBackground(src_frame, hull_mask, background);
 		}
-		// imshow("background", background);
+		imshow("background", background);
 
 		/*****************************************提取物体轨迹与相关关系**********************************/
 		//对不同帧中的相同物体进行标记, next_id即为每一帧中出现物体的总的计数
-		if(is_first_frame && (blobs.size() > 0))
+		if(is_first_frame && (blobs.size() > 0))		
 		{
 			is_first_frame = false;
 			for(int t=0; t < blobs.size(); t++)
@@ -98,11 +98,10 @@ int main()
 				next_id++;
 			}
 		}
-		else if(blobs.size() > 0)
+		else
 		{
 			findCorrespondence(blobs_old, blobs, label_vec);
 			addLabelToObject(blobs, label_vec, next_id);
-
 			/*********************演示找出来不同帧中的相同物体，做标记************************/
 			colored_output = Mat::zeros(src_frame.size(), CV_8UC3);
 			double time = frame_num / frame_rate;
@@ -110,40 +109,34 @@ int main()
 			imshow("colored_out", colored_output);
 		}
 
-		// if(blobs.size() > 0)
-		// {
-		// 	FillObjects(src_frame, blobs, Objects);
-		// }
-		// imshow("blobs", src_frame);
+		if(blobs.size() > 0)
+		{
+			FillObjects(src_frame, blobs, Objects);
+		}
 		
 		blobs_old = blobs;
 		blobs.clear();
 		label_vec.clear();
 		frame_num++;
-		if(cvWaitKey(30) > 0) break;
+		if(cvWaitKey(5) > 0) break;
 	}
-
+	cvDestroyAllWindows();
+	blobs_old.clear();
 	/***********************************轨迹重新组合************************************/			
-	
-	// Objects_copia = Objects;		
-	// Objects.clear();				
-	// for(int i=0; i<Objects_copia.size(); i++)
-	// {
-	// 	if(Objects_copia[i].second.size() > 10)
-	// 	{
-	// 		Objects.push_back(Objects_copia[i]);
-			
-	// 	}
-	// }
-	// Mat fondo = imread(BACKGROUND_INITIAL,3);
-
-	// vector<pair<vector<vector<int>>, vector<Mat>>> Objects_aux;
-	// seleccionar(Objects,Objects_aux);
-	// Objects = Objects_aux;
-
-	// mostrar(Objects,fondo,CANTIDAD_EVENTOS, outputVideo,frame_rate);
-	
+	vector<pair<vector<vector<int>>, vector<Mat>>> Objects_copy, Objects_aux;
+	Objects_copy = Objects;		
+	Objects.clear();				
+	for(int i=0; i<Objects_copy.size(); i++)
+	{
+		if(Objects_copy[i].second.size() > 10)
+		{
+			Objects.push_back(Objects_copy[i]);
+		}
+	}
+	Objects_copy.clear();
+	select(Objects, Objects_aux);
+	Objects.clear();
+	synthesis(Objects_aux, background, outputVideo, frame_rate);
+	Objects_aux.clear();
 	return 0;
 }
-
-
